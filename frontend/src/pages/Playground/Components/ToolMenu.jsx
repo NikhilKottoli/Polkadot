@@ -26,22 +26,22 @@ const menuButtons = [
   {
     icon: <MessageSquarePlus />,
     label: "Add Comment",
-    shortcut: "C",
-    keyCombo: (e) => e.key.toLowerCase() === "c",
+    shortcut: "Ctrl+T",
+    keyCombo: (e) => e.key.toLowerCase() === "t",
     onClick: () => console.log("Add Comment"),
   },
   {
     icon: <Hand />,
     label: "Drag Canvas",
-    shortcut: "Space",
-    keyCombo: (e) => e.code === "Space",
+    shortcut: "ctrl+H",
+    keyCombo: (e) => e.key.toLowerCase() === "h",
     onClick: () => console.log("Drag Canvas"),
   },
   {
     icon: <Sparkle />,
     label: "AI Assistant",
-    shortcut: "Ctrl+A",
-    keyCombo: (e) => e.ctrlKey && e.key.toLowerCase() === "a",
+    shortcut: "Ctrl+I",
+    keyCombo: (e) => e.ctrlKey && e.key.toLowerCase() === "i",
     onClick: () => console.log("AI Assistant"),
   },
 ];
