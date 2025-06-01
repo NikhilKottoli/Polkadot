@@ -4,21 +4,37 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Loader, Loader2Icon } from "lucide-react";
 
+import { useNavigate } from "react-router-dom";
+
 export default function AuthPage() {
+  const navigate = useNavigate();
   return (
     <>
       <div className="fixed inset-y-0 right-0 hidden h-screen w-2/3 object-cover object-left lg:block  p-8 pr-0">
-        <img
-          src="https://images.unsplash.com/photo-1687720657052-c026be7f388c?q=80&w=2785&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-          alt="Login illustration"
-          className="h-full w-full object-cover rounded-l-4xl"
-        />
+        <div
+          className="h-full w-full object-cover rounded-l-4xl pt-16 pl-16 bg-[#252525]"
+          style={{
+            background: `url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRuiNqnxLAfkAe-dg-wExzjpMUfusobXHMSwA&s")`,
+            backgroundRepeat: "no-repeat",
+            objectFit: "cover",
+            backgroundSize: "cover",
+          }}
+        >
+          <img
+            src="https://reactflow.dev/img/case-studies/hubql-screenshot.png"
+            alt="Login illustration"
+            className="h-full w-full object-cover rounded-tl-4xl object-left border-white/50 border-t-6 border-l-6 "
+          />
+        </div>
       </div>
 
       <main className="relative z-10 mx-auto h-screen px-6 py-12 lg:grid lg:w-screen lg:max-w-full lg:grid-cols-2 lg:gap-32 lg:px-0 flex items-center ">
         <div className="w-full  px-32">
           <div className="w-[400px] ">
-            <div className="mb-1 mt-12 text-3xl  text-gray-100">
+            <div>
+              <img src="logo.svg" className="w-18" />
+            </div>
+            <div className="mb-1 mt-6 text-3xl  text-gray-100">
               Welcome to <span className="font-black">Polkaflow</span>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -75,7 +91,13 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full">
+              <Button
+                type="submit"
+                className="w-full cursor-pointer"
+                onClick={() => {
+                  navigate("/dashboard");
+                }}
+              >
                 Sign In
               </Button>
             </form>
