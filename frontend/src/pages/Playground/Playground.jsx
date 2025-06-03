@@ -1,22 +1,17 @@
-import { CircleUser, Edit } from "lucide-react";
-
+import NodePalette from "./components/LayoutComponents/PropertiesMenu";
 import { Sheet } from "@/components/ui/sheet";
-import NodesSheet from "./Components/NodesSheet";
-import ToolMenu from "./Components/ToolMenu";
-import PropertiesBar from "./Components/PropertiesMenu";
-import TopBar from "./Components/TopBar";
+import NodesSheet from "./components/LayoutComponents/NodesSheet";
+import ToolMenu from "./components/LayoutComponents/ToolMenu";
+import TopBar from "./components/LayoutComponents/TopBar";
+import FlowBoard from "./components/Board/FlowBoard";
 
 export default function Playground() {
   return (
     <div className="flex flex-1 flex-col  w-full h-screen p-2 bg-[#171717] ">
       <Sheet>
         <TopBar />
-        <div className=" w-full h-full rounded-2xl border-[#2b2b2b] border bg-[#0e0e0e] relative bg-[radial-gradient(#3a3a3a_1px,transparent_1px)] [background-size:54px_54px]">
-          {/* <div className="w-full h-screen "></div> */}
-
-          <NodesSheet />
-          <ToolMenu />
-          <PropertiesBar />
+        <div className=" w-full h-full rounded-2xl border-[#2b2b2b] border bg-[#0e0e0e] relative overflow-hidden ]">
+          <FlowBoard />
         </div>
       </Sheet>
     </div>
