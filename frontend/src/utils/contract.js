@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import contractABI from "../contracts/XcmAssetReceiver.json";
 
-const CONTRACT_ADDRESS = "0x169e90699bFFEBF1FF1BCAC5E8f415f5a1FF1d05";
+const CONTRACT_ADDRESS = "0x4c0f921ceeea8b9e457fff610b9b4c3574806117";
 
 export async function callOnXcmAssetReceived(assetId, amount, from) {
   if (!window.ethereum) throw new Error("MetaMask not found");
