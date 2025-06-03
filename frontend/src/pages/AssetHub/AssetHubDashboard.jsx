@@ -52,32 +52,40 @@ const AssetHubDashboard = () => {
   const connectWallet = async () => {
     try {
       setLoading(true);
+      console.log("Connecting to wallet...");
       const provider = new ethers.BrowserProvider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
-      
+
+      console.log("Provider:", provider);
+      console.log("Signer:", signer);
+      console.log("Address:", address);
+
       setProvider(provider);
       setSigner(signer);
       setAccount(address);
       setConnected(true);
-      
+
       const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, ASSET_HUB_ABI, signer);
       setContract(contractInstance);
-      
+
       // Load existing assets
       const count = await contractInstance.assetCount();
+      console.log("Asset count:", count.toString());
       const assets = [];
       for (let i = 1; i <= count; i++) {
         assets.push(i);
       }
+      console.log("Existing assets:", assets);
       setExistingAssets(assets);
-      
+
     } catch (error) {
       console.error("Connection error:", error);
       alert("Error connecting to wallet");
     } finally {
       setLoading(false);
+      console.log("Finished connectWallet");
     }
   };
 
