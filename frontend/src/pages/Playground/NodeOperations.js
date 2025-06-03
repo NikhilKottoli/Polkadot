@@ -1,8 +1,15 @@
 import { useCallback } from "react";
-import useBoardStore from "./store";
+import useBoardStore from "../../store/store";
 
 export const useNodeOperations = () => {
-  const { addNode, deleteNode, updateNode, duplicateNode } = useBoardStore();
+  const {
+    addNode,
+    deleteNode,
+    updateNode,
+    duplicateNode,
+    selectedNode,
+    setSelectedNode,
+  } = useBoardStore();
 
   const createNode = useCallback(
     (nodeType, position) => {
@@ -25,6 +32,78 @@ export const useNodeOperations = () => {
       return newNode.id;
     },
     [addNode]
+  );
+
+  const selectNode = useCallback(
+    (nodeId) => {
+      // If the same node is clicked, deselect it
+      if (selectedNode === nodeId) {
+        setSelectedNode(null);
+      } else {
+        // Select the new node (this automatically deselects the previous one)
+        setSelectedNode(nodeId);
+      }
+    },
+    [selectedNode, setSelectedNode]
+  );
+
+  const handleNodeClick = useCallback(
+    (event, node) => {
+      event.stopPropagation();
+      selectNode(node.id);
+    },
+    [selectNode]
+  );
+
+  const handleNodeContextMenu = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Select the node when right-clicked
+      setSelectedNode(node.id);
+
+      // Return context menu data for the component to handle
+      return {
+        nodeId: node.id,
+        position: { x: event.clientX, y: event.clientY },
+      };
+    },
+    [setSelectedNode]
+  );
+
+  const duplicateSelectedNode = useCallback(
+    (nodeId) => {
+      if (duplicateNode) {
+        const newNodeId = duplicateNode(nodeId);
+        setSelectedNode(newNodeId);
+        return newNodeId;
+      }
+    },
+    [duplicateNode, setSelectedNode]
+  );
+
+  const deleteSelectedNode = useCallback(
+    (nodeId) => {
+      deleteNode(nodeId);
+      // Clear selection if the deleted node was selected
+      if (selectedNode === nodeId) {
+        setSelectedNode(null);
+      }
+    },
+    [deleteNode, selectedNode, setSelectedNode]
+  );
+
+  const resetNodeToDefaults = useCallback(
+    (nodeId) => {
+      updateNode(nodeId, {
+        data: {
+          properties: {},
+          status: "pending",
+        },
+      });
+    },
+    [updateNode]
   );
 
   const updateNodeProperties = useCallback(
@@ -54,6 +133,10 @@ export const useNodeOperations = () => {
     [updateNode]
   );
 
+  const clearSelection = useCallback(() => {
+    setSelectedNode(null);
+  }, [setSelectedNode]);
+
   return {
     createNode,
     deleteNode,
@@ -62,5 +145,14 @@ export const useNodeOperations = () => {
     updateNodeProperties,
     updateNodeLabel,
     updateNodeStatus,
+    // New selection methods
+    selectNode,
+    selectedNode,
+    handleNodeClick,
+    handleNodeContextMenu,
+    duplicateSelectedNode,
+    deleteSelectedNode,
+    resetNodeToDefaults,
+    clearSelection,
   };
 };
