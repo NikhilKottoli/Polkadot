@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./jsconfig.app.json"
+    }
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@tailus-ui/*": ["/components/tailus-ui/*"],
+      "@lib/*": ["/lib/*"],
+      "@/*": ["./src/*"]
+    }
+  }
+}
