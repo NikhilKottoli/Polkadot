@@ -154,3 +154,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+.react-flow {
+  outline: none !important;
+}
+
+.react-flow:focus {
+  outline: none !important;
+}
+
+.react-flow__renderer {
+  outline: none !important;
+}

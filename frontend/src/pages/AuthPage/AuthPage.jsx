@@ -21,9 +21,9 @@ export default function AuthPage() {
           }}
         >
           <img
-            src="https://reactflow.dev/img/case-studies/hubql-screenshot.png"
+            src="/screenshot.png"
             alt="Login illustration"
-            className="h-full w-full object-cover rounded-tl-4xl object-left border-white/50 border-t-6 border-l-6 "
+            className="bg-black h-full w-full object-cover rounded-tl-4xl object-left border-white/50 border-t-6 border-l-6 "
           />
         </div>
       </div>
