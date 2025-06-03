@@ -10,15 +10,17 @@ import {
   Handle,
   Position,
 } from "@xyflow/react";
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../Node/CustomNode";
-import useBoardStore from "../../store";
+import useBoardStore from "../../../../store/store";
 import { nodeTypes, panOnDrag } from "../../data";
 import ToolMenu from "../LayoutComponents/ToolMenu";
 import NodesSheet from "../LayoutComponents/NodesSheet";
 import NodePalette from "../LayoutComponents/PropertiesMenu";
 import TopBar from "../LayoutComponents/TopBar";
+import { NodeContextMenu } from "../Node/NodeContextMenu";
+import { useNodeOperations } from "../../NodeOperations";
 
 // CSS to remove all possible borders and outlines
 const flowStyles = `
@@ -46,6 +48,18 @@ const flowStyles = `
     outline: none !important;
     border: none !important;
   }
+  
+  /* Selected node styling */
+  .react-flow__node.selected {
+    box-shadow: 0 0 0 2px #3b82f6 !important;
+  }
+  
+  /* Custom selected node styling */
+  .custom-node-selected {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5) !important;
+    transform: scale(1.02) !important;
+    transition: all 0.2s ease-in-out !important;
+  }
 `;
 
 // Inject styles
@@ -69,6 +83,16 @@ const FlowBoard = ({ projectId }) => {
     onConnect,
   } = useBoardStore();
 
+  const {
+    selectedNode,
+    handleNodeClick,
+    duplicateSelectedNode,
+    deleteSelectedNode,
+    resetNodeToDefaults,
+    clearSelection,
+  } = useNodeOperations();
+
+  const [contextMenu, setContextMenu] = useState(null);
   const currentProject = getCurrentProject();
 
   // Set current project when component mounts or projectId changes
@@ -77,6 +101,75 @@ const FlowBoard = ({ projectId }) => {
       setCurrentProject(projectId);
     }
   }, [projectId, currentProject?.id, setCurrentProject]);
+
+  // Handle node click for selection
+  const onNodeClick = useCallback(
+    (event, node) => {
+      event.stopPropagation();
+      handleNodeClick(event, node);
+    },
+    [handleNodeClick]
+  );
+
+  // Handle right-click context menu
+  const onNodeContextMenu = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      // Select the node when right-clicked
+      if (selectedNode !== node.id) {
+        handleNodeClick(event, node);
+      }
+
+      // Calculate position for context menu
+      const pane = event.currentTarget.getBoundingClientRect();
+      const x = event.clientX;
+      const y = event.clientY;
+
+      setContextMenu({
+        nodeId: node.id,
+        x: x < pane.width - 200 ? x : x - 200,
+        y: y < pane.height - 150 ? y : y - 150,
+      });
+    },
+    [selectedNode, handleNodeClick]
+  );
+
+  // Handle pane click to clear selection and context menu
+  const onPaneClick = useCallback(() => {
+    clearSelection();
+    setContextMenu(null);
+  }, [clearSelection]);
+
+  // Handle context menu actions
+  const handleContextMenuAction = useCallback(
+    (action, nodeId) => {
+      switch (action) {
+        case "duplicate":
+          duplicateSelectedNode(nodeId);
+          break;
+        case "delete":
+          deleteSelectedNode(nodeId);
+          break;
+        case "reset":
+          resetNodeToDefaults(nodeId);
+          break;
+      }
+      setContextMenu(null);
+    },
+    [duplicateSelectedNode, deleteSelectedNode, resetNodeToDefaults]
+  );
+
+  // Enhanced node types with selection support
+  const enhancedNodeTypes = {
+    ...nodeTypes,
+    custom: (props) => (
+      <div className={selectedNode === props.id ? "custom-node-selected" : ""}>
+        <CustomNode {...props} selected={selectedNode === props.id} />
+      </div>
+    ),
+  };
 
   // Show loading or error state if no project is available
   if (!currentProject) {
@@ -105,11 +198,10 @@ const FlowBoard = ({ projectId }) => {
         className="w-full h-full relative"
         style={{
           position: "relative",
-
           outline: "none",
           border: "none",
-          top: "-10px",
-          left: "-10px",
+          top: "-1px",
+          left: "-1px",
         }}
       >
         <ReactFlow
@@ -118,7 +210,10 @@ const FlowBoard = ({ projectId }) => {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
-          nodeTypes={nodeTypes}
+          nodeTypes={enhancedNodeTypes}
+          onNodeClick={onNodeClick}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneClick={onPaneClick}
           panOnScroll
           selectionOnDrag
           panOnDrag={panOnDrag}
@@ -151,8 +246,12 @@ const FlowBoard = ({ projectId }) => {
           />
 
           <MiniMap
-            nodeStrokeColor={() => "#ffffff"}
-            nodeColor={() => "#262626"}
+            nodeStrokeColor={(node) =>
+              selectedNode === node.id ? "#3b82f6" : "#ffffff"
+            }
+            nodeColor={(node) =>
+              selectedNode === node.id ? "#1e40af" : "#262626"
+            }
             nodeStrokeWidth={2}
             zoomable
             pannable
@@ -191,6 +290,11 @@ const FlowBoard = ({ projectId }) => {
                 Status:{" "}
                 <span className="capitalize">{currentProject.status}</span>
               </div>
+              {selectedNode && (
+                <div className="text-blue-400 mt-1">
+                  Selected: {selectedNode}
+                </div>
+              )}
             </div>
           </Panel>
 
@@ -201,8 +305,19 @@ const FlowBoard = ({ projectId }) => {
           </Panel>
           <NodeToolbar />
           <NodeResizer />
-          {/* <NodePalette /> */}
+          <NodePalette />
         </ReactFlow>
+
+        {/* Context Menu */}
+        {contextMenu && (
+          <NodeContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            nodeId={contextMenu.nodeId}
+            onAction={handleContextMenuAction}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
       </div>
     </div>
   );
