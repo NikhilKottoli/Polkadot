@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { PlusSquare, MoreVertical, Play, Copy, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import useBoardStore from "../Playground/store";
+import useBoardStore from "../../store/store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-
+import { useState } from "react";
 export default function DashboardPage() {
   return (
     <SidebarProvider
@@ -76,10 +76,24 @@ function SectionCards() {
   );
 }
 
+// ProjectCard component with enhanced thumbnail handling
 function ProjectCard({ project }) {
   const navigate = useNavigate();
-  const { setCurrentProject, updateProject, deleteProject, duplicateProject } =
-    useBoardStore();
+  const {
+    setCurrentProject,
+    updateProject,
+    deleteProject,
+    duplicateProject,
+    getCachedThumbnail,
+  } = useBoardStore();
+
+  // Get cached thumbnail with better fallback logic
+  const [thumbnailSrc, setThumbnailSrc] = useState(() => {
+    const cached = getCachedThumbnail(project.id);
+    return cached || project.thumbnail || "herobg.png";
+  });
+
+  const [imageError, setImageError] = useState(false);
 
   const handleOpenProject = () => {
     setCurrentProject(project.id);
@@ -106,6 +120,16 @@ function ProjectCard({ project }) {
     }
   };
 
+  const handleImageError = (e) => {
+    if (!imageError) {
+      setImageError(true);
+      // Try fallback thumbnail
+      const fallback =
+        project.thumbnail !== "herobg.png" ? project.thumbnail : "herobg.png";
+      setThumbnailSrc(fallback);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case "deployed":
@@ -127,9 +151,11 @@ function ProjectCard({ project }) {
         style={{ aspectRatio: "3/2" }}
       >
         <img
-          src={project.thumbnail}
+          src={thumbnailSrc}
           className="rounded-lg overflow-hidden w-full h-full object-cover"
           alt={project.name}
+          onError={handleImageError}
+          loading="lazy"
         />
 
         {/* Status Badge */}
