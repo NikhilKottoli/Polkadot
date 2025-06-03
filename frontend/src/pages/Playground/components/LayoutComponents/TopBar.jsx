@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import html2canvas from "html2canvas";
 import {
   CircleUser,
   Edit,
@@ -12,18 +13,24 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import useBoardStore from "../../store";
+import useBoardStore from "../../../../store/store";
 
 export default function TopBar() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
   });
 
-  const { getCurrentProject, updateProject, getNodes, getEdges } =
-    useBoardStore();
+  const {
+    getCurrentProject,
+    updateProject,
+    getNodes,
+    getEdges,
+    saveProjectThumbnail,
+  } = useBoardStore();
 
   const currentProject = getCurrentProject();
 
@@ -64,7 +71,6 @@ export default function TopBar() {
         updatedAt: new Date().toISOString(),
       });
 
-      // Optional: Show success notification
       console.log("Project saved successfully!");
     }
   };
@@ -72,7 +78,6 @@ export default function TopBar() {
   // Deploy project
   const handleDeploy = () => {
     if (currentProject) {
-      // Save current state before deploying
       updateProject(currentProject.id, {
         nodes: getNodes(),
         edges: getEdges(),
@@ -81,8 +86,70 @@ export default function TopBar() {
         updatedAt: new Date().toISOString(),
       });
 
-      // Optional: Show success notification
       console.log("Project deployed successfully!");
+    }
+  };
+
+  // Enhanced screenshot function with html2canvas
+  const takeScreenshotAndExit = async () => {
+    if (!currentProject) {
+      navigate("/dashboard");
+      return;
+    }
+
+    setIsCapturingScreenshot(true);
+
+    try {
+      // Find the React Flow container with better selectors
+      const flowContainer =
+        document.querySelector(".react-flow") ||
+        document.querySelector('[data-testid="rf__wrapper"]') ||
+        document.querySelector(".react-flow__renderer") ||
+        document.querySelector(".react-flow__container") ||
+        document.body;
+
+      if (flowContainer) {
+        // Save current project state first
+        updateProject(currentProject.id, {
+          nodes: getNodes(),
+          edges: getEdges(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        // Configure html2canvas options for better quality
+        const canvas = await html2canvas(flowContainer, {
+          backgroundColor: "#ffffff",
+          scale: 1,
+          useCORS: true,
+          allowTaint: true,
+          width: flowContainer.scrollWidth || flowContainer.offsetWidth,
+          height: flowContainer.scrollHeight || flowContainer.offsetHeight,
+          scrollX: 0,
+          scrollY: 0,
+          ignoreElements: (element) => {
+            // Ignore certain UI elements that shouldn't be in screenshot
+            return (
+              element.classList.contains("react-flow__controls") ||
+              element.classList.contains("react-flow__minimap") ||
+              element.tagName === "BUTTON"
+            );
+          },
+        });
+
+        // Convert canvas to base64 image
+        const imageData = canvas.toDataURL("image/png", 0.8);
+
+        // Save thumbnail using your store method
+        await saveProjectThumbnail(currentProject.id, imageData);
+
+        console.log("Screenshot saved and cached successfully!");
+      }
+    } catch (error) {
+      console.error("Failed to take screenshot:", error);
+    } finally {
+      setIsCapturingScreenshot(false);
+      // Always navigate back, even if screenshot fails
+      navigate("/dashboard");
     }
   };
 
@@ -123,9 +190,13 @@ export default function TopBar() {
           variant="outline"
           className="ml-[-10px] mr-[8px]"
           size="sm"
-          onClick={() => navigate("/dashboard")}
+          onClick={takeScreenshotAndExit}
+          disabled={isCapturingScreenshot}
         >
-          <ArrowLeft className="w-4 h-4 " />
+          <ArrowLeft className="w-4 h-4" />
+          {isCapturingScreenshot && (
+            <span className="ml-1 text-xs">Capturing...</span>
+          )}
         </Button>
         <img className="" src="/logo.svg" alt="Logo" />
         <p className="font-bold">Polkaflow</p>
@@ -134,11 +205,7 @@ export default function TopBar() {
       {/* Center Section - Project Info */}
       <div className="flex gap-2 items-center h-full">
         {isEditing ? (
-          <div
-            className={`flex  gap-2 min-w-[300px] ${
-              isEditing ? " items-center" : "flex-col"
-            }`}
-          >
+          <div className="flex gap-2 min-w-[300px] items-center">
             <div className="flex items-center gap-2 justify-center text-center">
               <Input
                 value={editForm.name}
