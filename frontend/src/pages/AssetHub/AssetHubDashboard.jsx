@@ -17,6 +17,7 @@ const ASSET_HUB_ABI = [
 
 const CONTRACT_ADDRESS = "0xab6393232CbB3D3B38f6f1D33728f1de275E098b";
 
+
 const AssetHubDashboard = () => {
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
@@ -136,24 +137,41 @@ const AssetHubDashboard = () => {
 
   // Asset info fetch
   const fetchAssetInfo = async () => {
-    if (!contract || !existingAssets.includes(Number(infoAssetId))) {
-      alert("Invalid or non-existing asset ID");
-      return;
-    }
     try {
+      if (!contract) {
+        alert("Contract not initialized");
+        return;
+      }
+
+      // Convert to BigInt first to avoid mixing number types
+      const assetId = BigInt(infoAssetId) - 1n; // Convert to BigInt and adjust for 0-based index
+      const totalAssets = await contract.assetCount();
+      const maxId = totalAssets - 1n; // Use BigInt subtraction
+      console.log(`assetId: ${assetId}, maxId: ${maxId}`);
+      if (assetId < 0n || assetId > maxId) {
+        alert(`Invalid asset ID. Valid IDs: 0-${maxId}`);
+        return;
+      }
+
       setLoading(true);
-      const info = await contract.assetInfo(infoAssetId);
-      const bal = await contract.balanceOf(infoAssetId, account);
-      const isFrozen = await contract.isFrozen(infoAssetId, account);
       
+      // Pass assetId as BigInt to contract calls
+      const [info, bal, isFrozen] = await Promise.all([
+        contract.assetInfo(assetId),
+        contract.balanceOf(assetId, account),
+        contract.isFrozen(assetId, account)
+      ]);
+
       setAssetInfo({
         name: info[0],
         symbol: info[1],
-        decimals: info[2],
+        decimals: Number(info[2]),
         totalSupply: info[3].toString()
       });
+      
       setBalance(bal.toString());
       setFrozen(isFrozen);
+
     } catch (e) {
       setAssetInfo(null);
       setBalance("");
@@ -163,6 +181,7 @@ const AssetHubDashboard = () => {
       setLoading(false);
     }
   };
+
 
   if (!connected) {
     return (
