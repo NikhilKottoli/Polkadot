@@ -1,0 +1,762 @@
+// Node Types Configuration
+export const NODE_TYPES = {
+  // 1. TRIGGER NODES - Event Listeners
+  trigger: {
+    // On-Chain Triggers
+    asset_transfer_detected: {
+      id: "asset_transfer_detected",
+      label: "Asset Transfer Detected",
+      icon: "🪙",
+      category: "trigger",
+      subcategory: "on_chain",
+      description:
+        "Triggers when an asset transfer is detected on the blockchain",
+      handles: {
+        outputs: [
+          {
+            id: "transfer_data",
+            label: "Transfer Data",
+            type: "transfer_event",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_id: { type: "string", default: "", label: "Asset ID" },
+        min_amount: { type: "number", default: 0, label: "Minimum Amount" },
+        from_address: {
+          type: "string",
+          default: "",
+          label: "From Address (optional)",
+        },
+        to_address: {
+          type: "string",
+          default: "",
+          label: "To Address (optional)",
+        },
+      },
+    },
+
+    new_asset_created: {
+      id: "new_asset_created",
+      label: "New Asset Created",
+      icon: "🧾",
+      category: "trigger",
+      subcategory: "on_chain",
+      description: "Triggers when a new asset is created on the network",
+      handles: {
+        outputs: [
+          {
+            id: "asset_data",
+            label: "Asset Data",
+            type: "asset_info",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        creator_address: {
+          type: "string",
+          default: "",
+          label: "Creator Address (optional)",
+        },
+        asset_name_pattern: {
+          type: "string",
+          default: "",
+          label: "Asset Name Pattern",
+        },
+      },
+    },
+
+    balance_change_detected: {
+      id: "balance_change_detected",
+      label: "Balance Change Detected",
+      icon: "💰",
+      category: "trigger",
+      subcategory: "on_chain",
+      description: "Triggers when account balance changes",
+      handles: {
+        outputs: [
+          {
+            id: "balance_data",
+            label: "Balance Data",
+            type: "balance_change",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        account_address: {
+          type: "string",
+          default: "",
+          label: "Account Address",
+        },
+        asset_id: { type: "string", default: "DOT", label: "Asset ID" },
+        threshold_amount: {
+          type: "number",
+          default: 0,
+          label: "Threshold Amount",
+        },
+      },
+    },
+
+    governance_proposal: {
+      id: "governance_proposal",
+      label: "New Governance Proposal",
+      icon: "🗳️",
+      category: "trigger",
+      subcategory: "on_chain",
+      description: "Triggers when a new governance proposal is submitted",
+      handles: {
+        outputs: [
+          {
+            id: "proposal_data",
+            label: "Proposal Data",
+            type: "governance_event",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        proposal_type: {
+          type: "select",
+          options: ["referendum", "treasury", "council"],
+          default: "referendum",
+          label: "Proposal Type",
+        },
+      },
+    },
+
+    // Off-Chain Triggers
+    scheduled_time: {
+      id: "scheduled_time",
+      label: "Scheduled Time (Cron)",
+      icon: "🕒",
+      category: "trigger",
+      subcategory: "off_chain",
+      description: "Triggers at scheduled intervals using cron expressions",
+      handles: {
+        outputs: [
+          {
+            id: "time_event",
+            label: "Time Event",
+            type: "scheduled_event",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        cron_expression: {
+          type: "string",
+          default: "0 * * * *",
+          label: "Cron Expression",
+        },
+        timezone: { type: "string", default: "UTC", label: "Timezone" },
+      },
+    },
+
+    webhook_trigger: {
+      id: "webhook_trigger",
+      label: "Webhook Call",
+      icon: "🌐",
+      category: "trigger",
+      subcategory: "off_chain",
+      description: "Triggers when a webhook is called",
+      handles: {
+        outputs: [
+          {
+            id: "webhook_data",
+            label: "Webhook Data",
+            type: "http_request",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        webhook_url: {
+          type: "string",
+          default: "",
+          label: "Webhook URL",
+          readonly: true,
+        },
+        auth_required: {
+          type: "boolean",
+          default: false,
+          label: "Require Authentication",
+        },
+      },
+    },
+
+    price_threshold: {
+      id: "price_threshold",
+      label: "Price Reaches Threshold",
+      icon: "📈",
+      category: "trigger",
+      subcategory: "off_chain",
+      description: "Triggers when asset price reaches specified threshold",
+      handles: {
+        outputs: [
+          {
+            id: "price_data",
+            label: "Price Data",
+            type: "price_event",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_symbol: { type: "string", default: "DOT", label: "Asset Symbol" },
+        threshold_price: {
+          type: "number",
+          default: 0,
+          label: "Threshold Price ($)",
+        },
+        condition: {
+          type: "select",
+          options: ["above", "below"],
+          default: "above",
+          label: "Condition",
+        },
+      },
+    },
+  },
+
+  // 2. ACTION NODES
+  action: {
+    // On-Chain Actions
+    transfer_token: {
+      id: "transfer_token",
+      label: "Transfer Token",
+      icon: "🪙",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Transfer tokens to specified address",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "transaction_result",
+            label: "Transaction Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        to_address: { type: "string", default: "", label: "To Address" },
+        amount: { type: "number", default: 0, label: "Amount" },
+        asset_id: { type: "string", default: "DOT", label: "Asset ID" },
+        memo: { type: "string", default: "", label: "Memo (optional)" },
+      },
+    },
+
+    burn_token: {
+      id: "burn_token",
+      label: "Burn Token",
+      icon: "💥",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Burn specified amount of tokens",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "burn_result",
+            label: "Burn Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_id: { type: "string", default: "", label: "Asset ID" },
+        amount: { type: "number", default: 0, label: "Amount to Burn" },
+      },
+    },
+
+    mint_token: {
+      id: "mint_token",
+      label: "Mint Token",
+      icon: "🧪",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Mint new tokens",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "mint_result",
+            label: "Mint Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_id: { type: "string", default: "", label: "Asset ID" },
+        amount: { type: "number", default: 0, label: "Amount to Mint" },
+        beneficiary: {
+          type: "string",
+          default: "",
+          label: "Beneficiary Address",
+        },
+      },
+    },
+
+    // Off-Chain Actions
+    send_webhook: {
+      id: "send_webhook",
+      label: "Send Webhook",
+      icon: "📤",
+      category: "action",
+      subcategory: "off_chain",
+      description: "Send HTTP POST request to specified URL",
+      handles: {
+        inputs: [
+          { id: "data_input", label: "Data", type: "any", position: "left" },
+        ],
+        outputs: [
+          {
+            id: "response",
+            label: "Response",
+            type: "http_response",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        url: { type: "string", default: "", label: "Webhook URL" },
+        method: {
+          type: "select",
+          options: ["POST", "GET", "PUT", "DELETE"],
+          default: "POST",
+          label: "HTTP Method",
+        },
+        headers: { type: "object", default: {}, label: "Custom Headers" },
+      },
+    },
+
+    send_email: {
+      id: "send_email",
+      label: "Send Email",
+      icon: "📤",
+      category: "action",
+      subcategory: "off_chain",
+      description: "Send email notification",
+      handles: {
+        inputs: [
+          {
+            id: "message_data",
+            label: "Message Data",
+            type: "any",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "email_result",
+            label: "Email Result",
+            type: "delivery_status",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        to_email: { type: "string", default: "", label: "To Email" },
+        subject: {
+          type: "string",
+          default: "Workflow Notification",
+          label: "Subject",
+        },
+        template: { type: "text", default: "", label: "Email Template" },
+      },
+    },
+  },
+
+  // 3. LOGIC & UTILITY NODES
+  logic: {
+    if_else_logic: {
+      id: "if_else_logic",
+      label: "If / Else Logic",
+      icon: "🧠",
+      category: "logic",
+      subcategory: "control_flow",
+      description: "Conditional logic branching",
+      handles: {
+        inputs: [
+          {
+            id: "condition_input",
+            label: "Condition Input",
+            type: "any",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "true_output",
+            label: "True",
+            type: "any",
+            position: "right",
+            offset: -10,
+          },
+          {
+            id: "false_output",
+            label: "False",
+            type: "any",
+            position: "right",
+            offset: 10,
+          },
+        ],
+      },
+      properties: {
+        condition_type: {
+          type: "select",
+          options: ["equals", "greater_than", "less_than", "contains"],
+          default: "equals",
+          label: "Condition Type",
+        },
+        compare_value: { type: "string", default: "", label: "Compare Value" },
+        case_sensitive: {
+          type: "boolean",
+          default: true,
+          label: "Case Sensitive",
+        },
+      },
+    },
+
+    math_operation: {
+      id: "math_operation",
+      label: "Math Operation",
+      icon: "🧮",
+      category: "logic",
+      subcategory: "data_processing",
+      description: "Perform mathematical operations on input data",
+      handles: {
+        inputs: [
+          {
+            id: "number_a",
+            label: "Number A",
+            type: "number",
+            position: "left",
+            offset: -10,
+          },
+          {
+            id: "number_b",
+            label: "Number B",
+            type: "number",
+            position: "left",
+            offset: 10,
+          },
+        ],
+        outputs: [
+          { id: "result", label: "Result", type: "number", position: "right" },
+        ],
+      },
+      properties: {
+        operation: {
+          type: "select",
+          options: ["add", "subtract", "multiply", "divide", "power", "modulo"],
+          default: "add",
+          label: "Operation",
+        },
+        decimal_places: { type: "number", default: 2, label: "Decimal Places" },
+      },
+    },
+
+    data_formatter: {
+      id: "data_formatter",
+      label: "Data Formatter",
+      icon: "🧩",
+      category: "logic",
+      subcategory: "data_processing",
+      description: "Format and transform data between different types",
+      handles: {
+        inputs: [
+          { id: "raw_data", label: "Raw Data", type: "any", position: "left" },
+        ],
+        outputs: [
+          {
+            id: "formatted_data",
+            label: "Formatted Data",
+            type: "any",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        input_format: {
+          type: "select",
+          options: ["string", "json", "base64", "hex"],
+          default: "string",
+          label: "Input Format",
+        },
+        output_format: {
+          type: "select",
+          options: ["string", "json", "base64", "hex"],
+          default: "json",
+          label: "Output Format",
+        },
+        custom_template: {
+          type: "text",
+          default: "",
+          label: "Custom Template",
+        },
+      },
+    },
+  },
+
+  // 4. BRIDGE & INTEROPERABILITY NODES
+  bridge: {
+    polkadot_bridge: {
+      id: "polkadot_bridge",
+      label: "Polkadot Bridge Node",
+      icon: "🔗",
+      category: "bridge",
+      subcategory: "interoperability",
+      description: "Bridge assets between Polkadot parachains",
+      handles: {
+        inputs: [
+          {
+            id: "asset_input",
+            label: "Asset Input",
+            type: "asset",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "bridged_asset",
+            label: "Bridged Asset",
+            type: "asset",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        source_chain: {
+          type: "select",
+          options: ["AssetHub", "Moonbeam", "Astar", "Acala"],
+          default: "AssetHub",
+          label: "Source Chain",
+        },
+        destination_chain: {
+          type: "select",
+          options: ["AssetHub", "Moonbeam", "Astar", "Acala"],
+          default: "Moonbeam",
+          label: "Destination Chain",
+        },
+        bridge_fee: { type: "number", default: 0.1, label: "Bridge Fee (%)" },
+      },
+    },
+
+    token_swap: {
+      id: "token_swap",
+      label: "Token Swap Node",
+      icon: "🖇️",
+      category: "bridge",
+      subcategory: "defi",
+      description: "Swap tokens using DEX integration",
+      handles: {
+        inputs: [
+          {
+            id: "input_token",
+            label: "Input Token",
+            type: "asset",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "output_token",
+            label: "Output Token",
+            type: "asset",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        dex_protocol: {
+          type: "select",
+          options: ["HydraDX", "Uniswap", "PancakeSwap"],
+          default: "HydraDX",
+          label: "DEX Protocol",
+        },
+        slippage_tolerance: {
+          type: "number",
+          default: 1,
+          label: "Slippage Tolerance (%)",
+        },
+        min_output_amount: {
+          type: "number",
+          default: 0,
+          label: "Min Output Amount",
+        },
+      },
+    },
+  },
+
+  // 5. WALLET/USER INTERACTION NODES
+  wallet: {
+    sign_transaction: {
+      id: "sign_transaction",
+      label: "Sign Transaction",
+      icon: "🔐",
+      category: "wallet",
+      subcategory: "user_interaction",
+      description: "Request user signature for transaction",
+      handles: {
+        inputs: [
+          {
+            id: "transaction_data",
+            label: "Transaction Data",
+            type: "transaction",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "signed_transaction",
+            label: "Signed Transaction",
+            type: "signed_tx",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        require_confirmation: {
+          type: "boolean",
+          default: true,
+          label: "Require User Confirmation",
+        },
+        timeout_seconds: {
+          type: "number",
+          default: 60,
+          label: "Timeout (seconds)",
+        },
+      },
+    },
+
+    generate_wallet: {
+      id: "generate_wallet",
+      label: "Generate Wallet",
+      icon: "🧾",
+      category: "wallet",
+      subcategory: "key_management",
+      description: "Generate new wallet with mnemonic",
+      handles: {
+        inputs: [
+          { id: "trigger", label: "Trigger", type: "event", position: "left" },
+        ],
+        outputs: [
+          {
+            id: "wallet_info",
+            label: "Wallet Info",
+            type: "wallet_data",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        mnemonic_length: {
+          type: "select",
+          options: ["12", "24"],
+          default: "12",
+          label: "Mnemonic Length",
+        },
+        derivation_path: {
+          type: "string",
+          default: "//0",
+          label: "Derivation Path",
+        },
+      },
+    },
+  },
+
+  // 6. AI/ML NODES
+  ai: {
+    openai_completion: {
+      id: "openai_completion",
+      label: "OpenAI GPT Completion",
+      icon: "🧠",
+      category: "ai",
+      subcategory: "language_model",
+      description: "Generate text using OpenAI GPT models",
+      handles: {
+        inputs: [
+          {
+            id: "prompt_input",
+            label: "Prompt",
+            type: "string",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "completion_output",
+            label: "Completion",
+            type: "string",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        model: {
+          type: "select",
+          options: ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"],
+          default: "gpt-4",
+          label: "Model", 
+        },
+        max_tokens: { type: "number", default: 150, label: "Max Tokens" },
+        temperature: {
+          type: "number",
+          default: 0.7,
+          min: 0,
+          max: 2,
+          step: 0.1,
+          label: "Temperature",
+        },
+      },
+    },
+  },
+};
+
+// Helper function to get node type by ID
+export const getNodeTypeById = (nodeId) => {
+  for (const category of Object.values(NODE_TYPES)) {
+    if (category[nodeId]) {
+      return category[nodeId];
+    }
+  }
+  return null;    
+};
+
+// Helper function to get all node types in a category
+export const getNodeTypesByCategory = (categoryName) => {
+  return NODE_TYPES[categoryName] || {};
+};
+
+// Helper function to get all categories
+export const getAllCategories = () => {
+  return Object.keys(NODE_TYPES);
+};

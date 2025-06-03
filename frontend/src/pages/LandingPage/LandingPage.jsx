@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { TextEffect } from "@/components/motion-primitives/text-effect";
 import { AnimatedGroup } from "@/components/motion-primitives/animated-group";
+import IntegrationsSection from "./components/IntegrationsSection";
 
 const transitionVariants = {
   item: {
@@ -183,6 +184,7 @@ export default function HeroSection() {
             </AnimatedGroup>
           </div>
         </section>
+        <IntegrationsSection />
       </main>
     </>
   );
