@@ -27,14 +27,14 @@ const menuButtons = [
     icon: <MessageSquarePlus />,
     label: "Add Comment",
     shortcut: "Ctrl+T",
-    keyCombo: (e) => e.key.toLowerCase() === "t",
+    keyCombo: (e) => e.ctrlKey && e.key.toLowerCase() === "t",
     onClick: () => console.log("Add Comment"),
   },
   {
     icon: <Hand />,
     label: "Drag Canvas",
     shortcut: "ctrl+H",
-    keyCombo: (e) => e.key.toLowerCase() === "h",
+    keyCombo: (e) => e.ctrlKey && e.key.toLowerCase() === "h",
     onClick: () => console.log("Drag Canvas"),
   },
   {
@@ -70,7 +70,7 @@ export default function ToolMenu() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="absolute w-full h-[100px] flex items-center justify-center bottom-4 left-0 right-0 z-50 gap-4">
+    <div className="absolute w-full h-[100px] flex items-center justify-center bottom-4 left-0 right-0 z-50 gap-4 pb-[50px]">
       <div className="rounded-2xl border border-white/10 bg-[#171717]/60 backdrop-blur-md shadow-md p-4 flex items-center justify-center gap-4">
         {menuButtons.map((btn, i) => (
           <MenuButton
