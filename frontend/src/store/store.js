@@ -374,24 +374,74 @@ const useBoardStore = create(
         const { currentProject, projects } = get();
         if (!projects[currentProject]) return;
 
+        // Get source and target nodes
+        const sourceNode = projects[currentProject].nodes.find(n => n.id === params.source);
+        const targetNode = projects[currentProject].nodes.find(n => n.id === params.target);
+
+        // Determine edge label based on node types
+        let label = 'default';
+        if (sourceNode?.data?.nodeType?.includes('logic')) {
+          // For logic nodes, determine if this is a true/false branch
+          const outgoingEdges = projects[currentProject].edges.filter(e => e.source === params.source);
+          label = outgoingEdges.length === 0 ? 'true' : 'false';
+        }
+
         const newEdge = {
           ...params,
           id: `edge_${params.source}_${params.target}_${Date.now()}`,
           animated: true,
           style: { stroke: "#666666", strokeWidth: 2 },
           markerEnd: { type: "arrowclosed", color: "#666666" },
-        };
-
-        set({
-          projects: {
-            ...projects,
-            [currentProject]: {
-              ...projects[currentProject],
-              edges: addEdge(newEdge, projects[currentProject].edges),
-              updatedAt: new Date().toISOString(),
+          label,
+          data: {
+            sourceType: sourceNode?.data?.nodeType,
+            targetType: targetNode?.data?.nodeType,
+            dataFlow: {
+              from: sourceNode?.data?.properties?.output || {},
+              to: targetNode?.data?.properties?.input || {},
             },
           },
-        });
+        };
+
+        // Update execution order if needed
+        const sourceSequence = sourceNode?.sequence || 0;
+        const targetSequence = targetNode?.sequence || 0;
+        
+        if (targetSequence <= sourceSequence) {
+          // Update target node's sequence to be after source
+          const updatedNodes = projects[currentProject].nodes.map(node => {
+            if (node.id === params.target) {
+              return {
+                ...node,
+                sequence: sourceSequence + 1,
+              };
+            }
+            return node;
+          });
+
+          set({
+            projects: {
+              ...projects,
+              [currentProject]: {
+                ...projects[currentProject],
+                nodes: updatedNodes,
+                edges: addEdge(newEdge, projects[currentProject].edges),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          });
+        } else {
+          set({
+            projects: {
+              ...projects,
+              [currentProject]: {
+                ...projects[currentProject],
+                edges: addEdge(newEdge, projects[currentProject].edges),
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          });
+        }
       },
 
       // Node operations (keeping your existing implementation)
@@ -465,6 +515,35 @@ const useBoardStore = create(
         });
       },
 
+      updateNodeProperties: (nodeId, properties) => {
+        const { currentProject, projects } = get();
+        if (!projects[currentProject]) return;
+
+        set({
+          projects: {
+            ...projects,
+            [currentProject]: {
+              ...projects[currentProject],
+              nodes: projects[currentProject].nodes.map((node) =>
+                node.id === nodeId
+                  ? {
+                      ...node,
+                      data: { 
+                        ...node.data, 
+                        properties: {
+                          ...node.data.properties,
+                          ...properties
+                        }
+                      },
+                    }
+                  : node
+              ),
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+      },
+
       duplicateNode: (nodeId) => {
         const { projects, currentProject } = get();
         if (!projects[currentProject]) return;
@@ -500,6 +579,237 @@ const useBoardStore = create(
         });
 
         return newNodeId;
+      },
+
+      // Helper function to detect cycles in the graph
+      detectCycles: (nodes, edges) => {
+        const visited = new Set();
+        const recursionStack = new Set();
+
+        const dfs = (nodeId) => {
+          visited.add(nodeId);
+          recursionStack.add(nodeId);
+
+          const outgoingEdges = edges.filter(edge => edge.source === nodeId);
+          for (const edge of outgoingEdges) {
+            if (!visited.has(edge.target)) {
+              if (dfs(edge.target)) return true;
+            } else if (recursionStack.has(edge.target)) {
+              return true;
+            }
+          }
+
+          recursionStack.delete(nodeId);
+          return false;
+        };
+
+        for (const node of nodes) {
+          if (!visited.has(node.id)) {
+            if (dfs(node.id)) return true;
+          }
+        }
+        return false;
+      },
+
+      // Helper function to perform topological sort
+      topologicalSort: (nodes, edges) => {
+        const visited = new Set();
+        const temp = new Set();
+        const order = [];
+
+        const visit = (nodeId) => {
+          if (temp.has(nodeId)) return; // Cycle detected
+          if (visited.has(nodeId)) return;
+
+          temp.add(nodeId);
+          const outgoingEdges = edges.filter(edge => edge.source === nodeId);
+          for (const edge of outgoingEdges) {
+            visit(edge.target);
+          }
+          temp.delete(nodeId);
+          visited.add(nodeId);
+          order.unshift(nodeId);
+        };
+
+        for (const node of nodes) {
+          if (!visited.has(node.id)) {
+            visit(node.id);
+          }
+        }
+
+        return order;
+      },
+
+      // Enhanced export function with support for loops and parallel flows
+      exportFlowchart: () => {
+        const { projects, currentProject } = get();
+        if (!projects[currentProject]) return null;
+
+        const nodes = projects[currentProject].nodes;
+        const edges = projects[currentProject].edges;
+
+        // Helper to find outgoing edges for a node
+        const getOutgoingEdges = (nodeId) => edges.filter(edge => edge.source === nodeId);
+        
+        // Helper to find incoming edges for a node
+        const getIncomingEdges = (nodeId) => edges.filter(edge => edge.target === nodeId);
+        
+        // Helper to find root nodes (nodes with no incoming edges)
+        const findRootNodes = () => nodes.filter(node => getIncomingEdges(node.id).length === 0);
+        
+        // Helper to build a node's next/branches structure
+        const buildNodeNext = (nodeId) => {
+          const outgoingEdges = getOutgoingEdges(nodeId);
+          if (outgoingEdges.length === 0) return null;
+          
+          const node = nodes.find(n => n.id === nodeId);
+          const isLogicNode = node?.data?.nodeType?.includes('logic');
+          const isParallelNode = node?.data?.nodeType?.includes('parallel');
+          
+          if (isLogicNode) {
+            // Logic node with true/false branches
+            const branches = {};
+            outgoingEdges.forEach(edge => {
+              branches[edge.label] = {
+                target: edge.target,
+                dataFlow: edge.data?.dataFlow || {},
+              };
+            });
+            return { branches };
+          } else if (isParallelNode) {
+            // Parallel execution
+            return {
+              parallel: outgoingEdges.map(edge => ({
+                target: edge.target,
+                dataFlow: edge.data?.dataFlow || {},
+              })),
+            };
+          } else if (outgoingEdges.length > 1) {
+            // Multiple outputs without specific logic
+            return {
+              next: outgoingEdges.map(edge => ({
+                target: edge.target,
+                label: edge.label,
+                dataFlow: edge.data?.dataFlow || {},
+              })),
+            };
+          } else {
+            // Linear flow
+            return {
+              next: {
+                target: outgoingEdges[0].target,
+                dataFlow: outgoingEdges[0].data?.dataFlow || {},
+              },
+            };
+          }
+        };
+        
+        // Check for cycles (loops)
+        const hasLoops = get().detectCycles(nodes, edges);
+        
+        // Get execution order
+        const executionOrder = get().topologicalSort(nodes, edges);
+        
+        // Build the result structure
+        const result = {
+          nodes: [],
+          hasLoops,
+          executionOrder,
+        };
+        
+        // Process each node
+        const processNode = (nodeId, visited = new Set()) => {
+          if (visited.has(nodeId)) return; // Avoid cycles
+          visited.add(nodeId);
+          
+          const node = nodes.find(n => n.id === nodeId);
+          if (!node) return;
+          
+          const nodeData = {
+            id: node.id,
+            type: node.type,
+            nodeType: node.data.nodeType,
+            properties: node.data.properties,
+            sequence: node.sequence,
+            ...buildNodeNext(nodeId),
+          };
+          
+          result.nodes.push(nodeData);
+          
+          // Recursively process next nodes
+          const outgoingEdges = getOutgoingEdges(nodeId);
+          outgoingEdges.forEach(edge => {
+            processNode(edge.target, visited);
+          });
+        };
+        
+        // Start from root nodes
+        const rootNodes = findRootNodes();
+        rootNodes.forEach(root => processNode(root.id));
+        
+        return result;
+      },
+
+      // Update execution order
+      updateExecutionOrder: (newOrder) => {
+        const { currentProject, projects } = get();
+        if (!projects[currentProject]) return;
+
+        const updatedNodes = projects[currentProject].nodes.map((node, index) => ({
+          ...node,
+          sequence: newOrder.indexOf(node.id) >= 0 ? newOrder.indexOf(node.id) : index,
+        }));
+
+        set({
+          projects: {
+            ...projects,
+            [currentProject]: {
+              ...projects[currentProject],
+              nodes: updatedNodes,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+      },
+
+      // Load AI-generated flowchart
+      loadAIFlowchart: (flowchartData) => {
+        const { currentProject, projects } = get();
+        if (!projects[currentProject]) return;
+
+        console.log('📊 Loading AI-generated flowchart:', flowchartData);
+
+        set({
+          projects: {
+            ...projects,
+            [currentProject]: {
+              ...projects[currentProject],
+              nodes: flowchartData.nodes || [],
+              edges: flowchartData.edges || [],
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        return true;
+      },
+
+      // Clear current flowchart
+      clearFlowchart: () => {
+        const { currentProject, projects } = get();
+        if (!projects[currentProject]) return;
+
+        set({
+          projects: {
+            ...projects,
+            [currentProject]: {
+              ...projects[currentProject],
+              nodes: [],
+              edges: [],
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        });
       },
     }),
     {
