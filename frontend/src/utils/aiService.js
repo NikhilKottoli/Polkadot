@@ -1,5 +1,10 @@
 // AI Service for OpenAI Integration
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+
+// Validate API key is available
+if (!OPENAI_API_KEY) {
+  console.error('❌ [AIService] VITE_OPENAI_API_KEY not found in environment variables');
+}
 
 // Available node types for the AI to use
 const AVAILABLE_NODE_TYPES = {
@@ -112,6 +117,12 @@ export const generateFlowchartFromPrompt = async (prompt) => {
     console.log('🤖 [AIService] Starting flowchart generation');
     console.log('🤖 [AIService] Input prompt:', prompt);
     console.log('🤖 [AIService] Prompt length:', prompt.length);
+    
+    // Check if API key is available
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured. Please add VITE_OPENAI_API_KEY to your .env file.');
+    }
+    
     console.log('🤖 [AIService] API Key configured:', OPENAI_API_KEY ? 'Yes' : 'No');
     console.log('🤖 [AIService] Making request to OpenAI API...');
     
@@ -273,4 +284,236 @@ export const SAMPLE_PROMPTS = [
   "Setup a governance proposal workflow with email notifications",
   "Create a DeFi swap automation when price hits threshold",
   "Build an asset minting system with approval workflow"
+];
+
+// Solidity contract generation
+const SOLIDITY_SYSTEM_PROMPT = `You are an expert Solidity smart contract developer. Generate complete, secure, and well-documented Solidity contracts.
+
+CRITICAL REQUIREMENTS:
+1. Always include SPDX license identifier
+2. Use pragma solidity ^0.8.25 or compatible version
+3. DO NOT use any external imports (no @openzeppelin, no external contracts)
+4. Implement all functionality directly within the contract
+5. DO NOT use markdown formatting - return ONLY raw Solidity code
+6. Follow best practices for security
+7. Include comprehensive comments
+8. Add proper error handling
+
+SECURITY IMPLEMENTATION:
+- Implement reentrancy guards manually using bool _locked pattern
+- Implement access control using address owner and mapping(address => bool) authorized
+- Validate all inputs properly
+- Use safe math operations (Solidity 0.8+ has built-in overflow protection)
+- Handle edge cases
+
+SELF-CONTAINED FEATURES:
+- For tokens: implement balances mapping directly
+- For access control: implement owner/authorized patterns manually
+- For reentrancy: implement _locked boolean guard manually
+- For pausable: implement paused state manually
+
+RESPONSE FORMAT:
+Return ONLY the Solidity contract code without any markdown formatting, explanations, or code blocks. Start directly with "// SPDX-License-Identifier".
+
+CONTRACT STRUCTURE EXAMPLE:
+- Clear variable declarations
+- Built-in modifiers (onlyOwner, nonReentrant)
+- Well-organized functions
+- Event definitions
+- Self-contained implementation`;
+
+// Add a function to clean AI-generated Solidity code
+const cleanAIGeneratedCode = (code) => {
+  // Remove markdown code blocks
+  code = code.replace(/```solidity\n?/g, '');
+  code = code.replace(/```\n?/g, '');
+  
+  // Remove any explanatory text before the contract
+  const contractStart = code.indexOf('// SPDX-License-Identifier');
+  if (contractStart > 0) {
+    code = code.substring(contractStart);
+  }
+  
+  // Remove any explanatory text after the contract
+  const lastBrace = code.lastIndexOf('}');
+  if (lastBrace > 0) {
+    code = code.substring(0, lastBrace + 1);
+  }
+  
+  // Remove any extra whitespace
+  code = code.trim();
+  
+  // Ensure proper line endings
+  code = code.replace(/\r\n/g, '\n');
+  
+  return code;
+};
+
+export const generateSolidityContract = async (prompt) => {
+  try {
+    console.log('🔨 [Solidity] Starting contract generation');
+    console.log('🔨 [Solidity] Input prompt:', prompt);
+    console.log('🔨 [Solidity] Prompt length:', prompt.length);
+    
+    // Check if API key is available
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured. Please add VITE_OPENAI_API_KEY to your .env file.');
+    }
+    
+    console.log('🔨 [Solidity] Making request to OpenAI API...');
+    
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: SOLIDITY_SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: `Create a Solidity smart contract for: "${prompt}"`
+          }
+        ],
+        temperature: 0.3, // Lower temperature for more consistent code
+        max_tokens: 2500
+      })
+    });
+
+    console.log('🔨 [Solidity] Response status:', response.status);
+    console.log('🔨 [Solidity] Response ok:', response.ok);
+
+    if (!response.ok) {
+      console.error('❌ [Solidity] API request failed with status:', response.status);
+      const error = await response.json();
+      console.error('❌ [Solidity] API error response:', error);
+      throw new Error(error.error?.message || 'OpenAI API request failed');
+    }
+
+    console.log('🔨 [Solidity] Parsing response...');
+    const data = await response.json();
+    console.log('🔨 [Solidity] Full API response:', data);
+    
+    let contractCode = data.choices[0].message.content.trim();
+    
+    // Clean any markdown artifacts from AI response
+    contractCode = cleanAIGeneratedCode(contractCode);
+    
+    console.log('🔨 [Solidity] Generated contract length:', contractCode.length);
+    console.log('🔨 [Solidity] Generated contract preview:', contractCode.substring(0, 200) + '...');
+
+    return {
+      success: true,
+      contractCode: contractCode
+    };
+
+  } catch (error) {
+    console.error('❌ [Solidity] Contract generation failed');
+    console.error('❌ [Solidity] Error message:', error.message);
+    console.error('❌ [Solidity] Error stack:', error.stack);
+    
+    // Fallback contract
+    const contractName = prompt.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('').replace(/[^a-zA-Z0-9]/g, '') || 'GeneratedContract';
+    const fallbackContract = `// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+/**
+ * @title ${contractName}
+ * @dev Self-contained fallback contract generated for: ${prompt}
+ */
+contract ${contractName} {
+    // Access control
+    address public owner;
+    mapping(address => bool) public authorized;
+    
+    // Reentrancy guard
+    bool private _locked;
+    
+    // State variables
+    mapping(address => uint256) public balances;
+    uint256 public totalSupply;
+    
+    // Events
+    event ContractCreated(address indexed owner, string description);
+    event Transfer(address indexed from, address indexed to, uint256 amount);
+    
+    // Modifiers
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the owner");
+        _;
+    }
+    
+    modifier onlyAuthorized() {
+        require(authorized[msg.sender] || msg.sender == owner, "Not authorized");
+        _;
+    }
+    
+    modifier nonReentrant() {
+        require(!_locked, "ReentrancyGuard: reentrant call");
+        _locked = true;
+        _;
+        _locked = false;
+    }
+    
+    constructor() {
+        owner = msg.sender;
+        authorized[msg.sender] = true;
+        totalSupply = 1000000 * 10**18;
+        balances[msg.sender] = totalSupply;
+        emit ContractCreated(owner, "${prompt}");
+    }
+    
+    // Basic functionality
+    function transfer(address to, uint256 amount) public nonReentrant returns (bool) {
+        require(to != address(0), "Invalid recipient");
+        require(balances[msg.sender] >= amount, "Insufficient balance");
+        
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
+        
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+    
+    function addAuthorized(address user) public onlyOwner {
+        require(user != address(0), "Invalid address");
+        authorized[user] = true;
+    }
+    
+    function removeAuthorized(address user) public onlyOwner {
+        authorized[user] = false;
+    }
+    
+    function getBalance(address account) public view returns (uint256) {
+        return balances[account];
+    }
+    
+    // Fallback function
+    receive() external payable {}
+}`;
+
+    console.log('🔄 [Solidity] Generated fallback contract');
+    
+    return {
+      success: false,
+      error: error.message,
+      contractCode: fallbackContract
+    };
+  }
+};
+
+// Sample Solidity prompts
+export const SOLIDITY_SAMPLE_PROMPTS = [
+  "ERC-20 token with minting and burning capabilities",
+  "Multi-signature wallet contract",
+  "Simple voting DAO with proposal system",
+  "NFT marketplace with royalties",
+  "Decentralized escrow service",
+  "Time-locked treasury contract",
+  "Staking contract with rewards distribution"
 ]; 

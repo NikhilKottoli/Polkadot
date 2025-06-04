@@ -5,6 +5,7 @@ import AuthPage from "./pages/AuthPage/AuthPage";
 import DashboardPage from "./pages/DashboardPage/DashboardPage";
 import Playground from "./pages/Playground/Playground";
 import AssetHubDashboardWithSidebar from "./pages/AssetHub/AssetHubDashboardWithSidebar";
+import SolidityGenerator from "./pages/SolidityGenerator/SolidityGenerator";
 import MockXcmTrigger from "./MockXCMTrigger";
 import ContractDeployer from "./pages/CompileAndDeploy/CompileAndDeploy";
 // Components
@@ -32,6 +33,7 @@ function App() {
           path="/assethub"
           element={<AssetHubDashboardWithSidebar />}
         />
+        <Route path="/solidity-generator" element={<SolidityGenerator />} />
         <Route path="/compile" element={<ContractDeployer />} />
         <Route path="/mock" element={<MockXcmTrigger />} />
         <Route path="*" element={<h1>404 Not Found</h1>} />
