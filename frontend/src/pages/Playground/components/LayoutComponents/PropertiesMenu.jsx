@@ -24,7 +24,7 @@ const NodePalette = () => {
     clearSelection,
   } = useNodeOperations();
 
-  const { getNodes, getEdges } = useBoardStore();
+  const { getNodes, getEdges, updateNodeProperties: storeUpdateNodeProperties } = useBoardStore();
 
   // Don't render if no node is selected
   if (!selectedNode) {
@@ -59,7 +59,9 @@ const NodePalette = () => {
       ...currentNode.data.properties,
       [key]: value,
     };
-    updateNodeProperties(selectedNode, updatedProperties);
+    
+    // Use the store method directly for immediate updates
+    storeUpdateNodeProperties(selectedNode, updatedProperties);
   };
 
   const handleLabelChange = (newLabel) => {
@@ -70,34 +72,121 @@ const NodePalette = () => {
     updateNodeStatus(selectedNode, newStatus);
   };
 
-  const renderPropertyField = (key, value) => {
-    const fieldType = typeof value;
+  // Common event handlers to prevent event bubbling for all inputs
+  const handleInputClick = (e) => {
+    e.stopPropagation();
+  };
+  
+  const handleInputFocus = (e) => {
+    e.stopPropagation();
+  };
 
-    switch (fieldType) {
+  const renderPropertyField = (key, property) => {
+    // Handle both old format (value only) and new format (with type/options)
+    const value = typeof property === 'object' && property.hasOwnProperty('value') 
+      ? property.value 
+      : property;
+    
+    const propertyType = typeof property === 'object' && property.type 
+      ? property.type 
+      : typeof value;
+
+    const options = typeof property === 'object' && property.options 
+      ? property.options 
+      : null;
+
+    const label = typeof property === 'object' && property.label 
+      ? property.label 
+      : key;
+
+    switch (propertyType) {
       case "boolean":
         return (
           <div className="flex items-center justify-between">
-            <label className="text-sm text-gray-300">{key}</label>
+            <label className="text-sm text-gray-300">{label}</label>
             <input
               type="checkbox"
               checked={value}
               onChange={(e) => handlePropertyChange(key, e.target.checked)}
+              onClick={handleInputClick}
+              onFocus={handleInputFocus}
               className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
             />
+          </div>
+        );
+
+      case "select":
+        return (
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">{label}</label>
+            <select
+              value={value || ""}
+              onChange={(e) => handlePropertyChange(key, e.target.value)}
+              onClick={handleInputClick}
+              onFocus={handleInputFocus}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {options?.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
           </div>
         );
 
       case "number":
         return (
           <div>
-            <label className="block text-sm text-gray-300 mb-1">{key}</label>
+            <label className="block text-sm text-gray-300 mb-1">{label}</label>
             <input
               type="number"
-              value={value}
+              value={value || ""}
               onChange={(e) =>
                 handlePropertyChange(key, parseFloat(e.target.value) || 0)
               }
+              onClick={handleInputClick}
+              onFocus={handleInputFocus}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        );
+
+      case "text":
+        return (
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">{label}</label>
+            <textarea
+              value={value || ""}
+              onChange={(e) => handlePropertyChange(key, e.target.value)}
+              onClick={handleInputClick}
+              onFocus={handleInputFocus}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows={3}
+            />
+          </div>
+        );
+
+      case "object":
+        const objValue = value && typeof value === 'object' ? value : {};
+        const jsonString = JSON.stringify(objValue, null, 2);
+        return (
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">{label} (JSON)</label>
+            <textarea
+              value={jsonString}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value);
+                  handlePropertyChange(key, parsed);
+                } catch (err) {
+                  // Invalid JSON, don't update
+                  console.warn('Invalid JSON:', err);
+                }
+              }}
+              onClick={handleInputClick}
+              onFocus={handleInputFocus}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono"
+              rows={4}
+              placeholder="{}"
             />
           </div>
         );
@@ -105,11 +194,13 @@ const NodePalette = () => {
       default:
         return (
           <div>
-            <label className="block text-sm text-gray-300 mb-1">{key}</label>
+            <label className="block text-sm text-gray-300 mb-1">{label}</label>
             <input
               type="text"
-              value={value || ""}
+              value={String(value || "")}
               onChange={(e) => handlePropertyChange(key, e.target.value)}
+              onClick={handleInputClick}
+              onFocus={handleInputFocus}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -119,7 +210,10 @@ const NodePalette = () => {
 
   return (
     <div className="w-[400px] h-[98%] p-4 absolute right-[-20px] top-[-18px] z-[200] bottom-[10px]">
-      <div className="w-full h-full  border border-white/10 bg-[#171717]/90 backdrop-blur-md shadow-lg  flex flex-col overflow-y-scroll">
+      <div 
+        className="w-full h-full  border border-white/10 bg-[#171717]/90 backdrop-blur-md shadow-lg  flex flex-col overflow-y-scroll"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-2">
@@ -158,6 +252,8 @@ const NodePalette = () => {
                 type="text"
                 value={currentNode.data.label || ""}
                 onChange={(e) => handleLabelChange(e.target.value)}
+                onClick={handleInputClick}
+                onFocus={handleInputFocus}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -171,6 +267,8 @@ const NodePalette = () => {
                 onChange={(e) =>
                   handlePropertyChange("description", e.target.value)
                 }
+                onClick={handleInputClick}
+                onFocus={handleInputFocus}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows={2}
               />
@@ -181,6 +279,8 @@ const NodePalette = () => {
               <select
                 value={currentNode.data.status || "pending"}
                 onChange={(e) => handleStatusChange(e.target.value)}
+                onClick={handleInputClick}
+                onFocus={handleInputFocus}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="pending">Pending</option>
