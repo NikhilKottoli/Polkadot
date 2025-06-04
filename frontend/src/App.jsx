@@ -6,6 +6,7 @@ import DashboardPage from "./pages/DashboardPage/DashboardPage";
 import Playground from "./pages/Playground/Playground";
 import AssetHubDashboardWithSidebar from "./pages/AssetHub/AssetHubDashboardWithSidebar";
 import MockXcmTrigger from "./MockXCMTrigger";
+import ContractDeployer from "./pages/CompileAndDeploy/CompileAndDeploy";
 // Components
 
 function App() {
@@ -16,6 +17,9 @@ function App() {
   //     : navigate("/dashboard");
   // }, [navigate]);
 
+  useEffect(() => {
+    console.log("App component mounted");
+  }, []);
   return (
     <>
       <Routes>
@@ -28,7 +32,8 @@ function App() {
           path="/assethub"
           element={<AssetHubDashboardWithSidebar />}
         />
-        <Route path="/mock" element = {<MockXcmTrigger />}  />
+        <Route path="/compile" element={<ContractDeployer />} />
+        <Route path="/mock" element={<MockXcmTrigger />} />
         <Route path="*" element={<h1>404 Not Found</h1>} />
       </Routes>
     </>
