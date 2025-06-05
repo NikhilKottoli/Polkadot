@@ -12,7 +12,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusSquare, MoreVertical, Play, Copy, Trash2, Code2 } from "lucide-react";
+import {
+  PlusSquare,
+  MoreVertical,
+  Play,
+  Copy,
+  Trash2,
+  Code2,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useBoardStore from "../../store/store";
 import {
@@ -24,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 export default function DashboardPage() {
+  const navigate = useNavigate();
   return (
     <SidebarProvider
       style={{
@@ -37,6 +45,68 @@ export default function DashboardPage() {
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2 pt-8">
+            <Card
+              className="mb-8 mx-8 relative overflow-hidden rounded-[50px] p-4 cursor-pointer"
+              onClick={() => {
+                navigate("/solidity-generator");
+              }}
+            >
+              <div className="w-full h-full flex justify-center items-center gap-2 border-white/20 border-1 border-dashed rounded-[35px] flex-col p-1">
+                <div className="w-full h-full flex justify-center items-center gap-2 border-white/20 border-1 border-dashed rounded-[32px] flex-col ">
+                  <div className="bg-gradient-to-br w-full h-full rounded-3xl overflow-hidden">
+                    {/* Background decorative elements */}
+                    {/* <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-pink-400/10"></div> */}
+
+                    {/* Main content container */}
+                    <div className="relative z-10 flex  items-center justify-between h-full px-8 text-center ">
+                      {/* Highlight section */}
+                      <div className="mb-6 -ml-2">
+                        <h2 className="text-left text-3xl font-bold text-white mb-2 mt-6">
+                          Generate Solidity Contracts with AI
+                        </h2>
+                        <p className="text-left text-white/50 text-lg max-w-md mb-6">
+                          Transform natural language into production-ready smart
+                          contracts instantly
+                        </p>
+                        {/* Additional highlight text */}
+                        <p className="text-left text-white text-sm  opacity-80 bg-purple-500/10 inline mr-36 p-4 py-2 rounded-full border border-white/20 ">
+                          No coding experience required • Deploy on any EVM
+                          chain
+                        </p>
+                      </div>
+
+                      {/* CTA section */}
+                      <div className="flex flex-col gap-4 items-end">
+                        <button className="group bg-gradient-to-r from-[#2a2a2a] to-[#1a1a1a] hover:from-[#3a3a3a] hover:to-[#2a2a2a] text-white font-semibold px-8 py-3 rounded-full border border-[#404040] shadow-lg flex items-center space-x-2 transform transition-all duration-200 hover:shadow-xl ">
+                          <span>Start Generating Now</span>
+                          <svg
+                            className="w-5 h-5 transform transition-transform duration-200 group-hover:translate-x-2"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M9 5l7 7-7 7"
+                            ></path>
+                          </svg>
+                        </button>
+
+                        <p className="mr-4 opacity-70">Learn More about it</p>
+                      </div>
+                    </div>
+
+                    {/* Subtle pattern overlay */}
+                    <div className="absolute top-4 right-0 w-32 h-32 bg-gradient-to-bl from-white/20 to-transparent rounded-full -translate-y-16 translate-x-16"></div>
+                    <div className="absolute bottom-4 left-0 w-32 h-32 bg-gradient-to-tr from-purple-300/20 to-transparent rounded-full translate-y-12 -translate-x-12"></div>
+                  </div>
+                </div>
+              </div>
+            </Card>
             <div className="ml-8 mb-8">
               <TabMenu />
             </div>
@@ -77,8 +147,12 @@ function SectionCards() {
       >
         <div className="w-full h-full flex justify-center items-center gap-2 border-purple-500/30 border-1 border-dashed rounded-xl flex-col">
           <Code2 className="size-8 text-purple-400" />
-          <p className="text-purple-300 text-sm font-medium">AI Contract Generator</p>
-          <p className="text-purple-400/70 text-xs text-center px-2">Generate Solidity contracts with AI</p>
+          <p className="text-purple-300 text-sm font-medium">
+            AI Contract Generator
+          </p>
+          <p className="text-purple-400/70 text-xs text-center px-2">
+            Generate Solidity contracts with AI
+          </p>
         </div>
       </Card>
 

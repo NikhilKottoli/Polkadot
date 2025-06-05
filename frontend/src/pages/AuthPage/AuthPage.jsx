@@ -1,13 +1,26 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Loader, Loader2Icon } from "lucide-react";
-
+import { ArrowUpLeftIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function AuthPage() {
   const navigate = useNavigate();
+
+  const connectWallet = async () => {
+    try {
+      if (typeof window.ethereum !== "undefined") {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        navigate("/dashboard");
+      } else {
+        alert(
+          "MetaMask is not installed. Please install MetaMask to continue."
+        );
+      }
+    } catch (error) {
+      console.error("Error connecting to MetaMask:", error);
+    }
+  };
+
   return (
     <>
       <div className="fixed inset-y-0 right-0 hidden h-screen w-2/3 object-cover object-left lg:block  p-8 pr-0">
@@ -23,7 +36,7 @@ export default function AuthPage() {
           <img
             src="/screenshot.png"
             alt="Login illustration"
-            className="bg-black h-full w-full object-cover rounded-tl-4xl object-left border-white/50 border-t-6 border-l-6 "
+            className="bg-black h-full w-full object-cover rounded-tl-4xl object-left border-white/20 border-t-6 border-l-6 "
           />
         </div>
       </div>
@@ -38,77 +51,115 @@ export default function AuthPage() {
               Welcome to <span className="font-black">Polkaflow</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Welcome back! Sign in to continue.
+              Connect your wallet to continue.
             </p>
 
-            <div className="mt-8 grid grid-cols-2 gap-3">
+            <div className="mt-8 group">
               <Button
+                onClick={connectWallet}
                 variant="outline"
-                className="w-full flex items-center gap-2 text-sm"
+                className="w-full flex  text-sm  h-32 flex-col px-0 pr-4 cursor-pointer bg-white/2 rounded-xl hover:bg-[#0f0f0f] "
               >
-                <Loader2Icon className="h-4 w-4" />
-                Google
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full flex items-center gap-2 text-sm"
-              >
-                <Loader className="h-4 w-4" />
-                Microsoft
+                <Button
+                  variant="outline"
+                  className="w-full flex  text-sm  h-32 flex-col px-0 pr-2 group-hover:pr-4  cursor-pointer bg-white/2 rounded-xl hover:bg-[#0f0f0f]"
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full flex  text-sm  h-32 flex-col px-0 pr-4 relative p-2 cursor-pointer bg-[#191919] rounded-xl scale-105 translate-x-2"
+                  >
+                    <div className="border border-dashed border-white/20 w-full h-full flex gap-4 justify-center items-center cursor-pointer rounded-lg">
+                      <img
+                        src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/MetaMask_Fox.svg/1200px-MetaMask_Fox.svg.png"
+                        className="w-16 h-16"
+                      />
+                      <p className="text-left">
+                        Continue with <br /> MetaMask
+                      </p>
+                      <ArrowUpLeftIcon
+                        size={32}
+                        className="rotate-90 scale-[2] opacity-45"
+                      />
+                    </div>
+                  </Button>
+                </Button>
               </Button>
             </div>
 
-            <form className="mt-8 space-y-6">
+            <div className="mt-8">
               <div className="relative flex items-center gap-3">
                 <Separator className="flex-1" />
                 <span className="text-sm text-muted-foreground">
-                  Or continue with
+                  Or connect with other wallets
                 </span>
                 <Separator className="flex-1" />
               </div>
+            </div>
 
-              <div className="space-y-4 ">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Your email</Label>
-                  <Input id="email" name="email" type="email" required />
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password">Password</Label>
-                    <a
-                      href="#"
-                      className="text-sm text-blue-300 hover:underline"
-                    >
-                      Forgot your password?
-                    </a>
-                  </div>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
+            <div className="mt-6 space-y-3">
+              <Button
+                variant="outline"
+                className="w-full flex items-center justify-center gap-3 text-sm py-3"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="2"
                   />
-                </div>
-              </div>
+                  <path
+                    d="M8 12h8M12 8v8"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                </svg>
+                WalletConnect
+              </Button>
 
               <Button
-                type="submit"
-                className="w-full cursor-pointer"
-                onClick={() => {
-                  navigate("/dashboard");
-                }}
+                variant="outline"
+                className="w-full flex items-center justify-center gap-3 text-sm py-3"
               >
-                Sign In
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                >
+                  <rect
+                    x="3"
+                    y="3"
+                    width="18"
+                    height="18"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M9 12l2 2 4-4"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  />
+                </svg>
+                Coinbase Wallet
               </Button>
-            </form>
+            </div>
 
             <div className="mt-12 text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <a
-                className="text-blue-300 underline"
-                href="/examples/forms/register3"
-              >
-                Create account
+              New to Web3?{" "}
+              <a className="text-blue-300 underline" href="/learn-more">
+                Learn about wallets
               </a>
             </div>
           </div>

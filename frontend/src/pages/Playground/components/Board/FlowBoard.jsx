@@ -23,6 +23,7 @@ import { NodeContextMenu } from "../Node/NodeContextMenu";
 import { useNodeOperations } from "../../NodeOperations";
 import EdgeConditionEditor from "./EdgeConditionEditor";
 import ConnectionTest from "./ConnectionTest";
+import LoadingAnimation from "../../../../components/LoadingAnimation";
 
 // CSS to remove all possible borders and outlines
 const flowStyles = `
@@ -86,6 +87,8 @@ const FlowBoard = ({ projectId }) => {
     updateNodeProperties,
   } = useBoardStore();
 
+  const [loader, setLoader] = useState(false);
+
   const {
     selectedNode,
     handleNodeClick,
@@ -117,30 +120,30 @@ const FlowBoard = ({ projectId }) => {
   );
 
   // Handle edge double-click for condition editing
-  const onEdgeDoubleClick = useCallback(
-    (event, edge) => {
-      event.stopPropagation();
-      setSelectedEdge(edge);
-      setShowEdgeEditor(true);
-    },
-    []
-  );
+  const onEdgeDoubleClick = useCallback((event, edge) => {
+    event.stopPropagation();
+    setSelectedEdge(edge);
+    setShowEdgeEditor(true);
+  }, []);
 
   // Handle connection validation
   const isValidConnection = useCallback((connection) => {
     // Allow all connections for now - can add validation logic later
-    console.log('Validating connection:', connection);
+    console.log("Validating connection:", connection);
     return true;
   }, []);
 
   // Handle connection start
-  const onConnectStart = useCallback((event, { nodeId, handleId, handleType }) => {
-    console.log('Connection started:', { nodeId, handleId, handleType });
-  }, []);
+  const onConnectStart = useCallback(
+    (event, { nodeId, handleId, handleType }) => {
+      console.log("Connection started:", { nodeId, handleId, handleType });
+    },
+    []
+  );
 
   // Handle connection end
   const onConnectEnd = useCallback((event) => {
-    console.log('Connection ended');
+    console.log("Connection ended");
   }, []);
 
   // Handle right-click context menu
@@ -198,12 +201,12 @@ const FlowBoard = ({ projectId }) => {
     ...nodeTypes,
     custom: (props) => (
       <div className={selectedNode === props.id ? "custom-node-selected" : ""}>
-        <CustomNode 
-          {...props} 
+        <CustomNode
+          {...props}
           selected={selectedNode === props.id}
           data={{
             ...props.data,
-            onUpdateProperties: updateNodeProperties
+            onUpdateProperties: updateNodeProperties,
           }}
         />
       </div>
@@ -354,11 +357,11 @@ const FlowBoard = ({ projectId }) => {
               </div>
             </div>
           </Panel>
-
+          {loader && <LoadingAnimation />}
           {/* Layout Components */}
           <NodesSheet />
           <Panel position="bottom-center">
-            <ToolMenu />
+            <ToolMenu setLoader={setLoader} />
           </Panel>
           <NodeToolbar />
           <NodeResizer />
@@ -388,7 +391,7 @@ const FlowBoard = ({ projectId }) => {
         )}
 
         {/* Debug Component - Remove in production */}
-        {process.env.NODE_ENV === 'development' && <ConnectionTest />}
+        {process.env.NODE_ENV === "development" && <ConnectionTest />}
       </div>
     </div>
   );

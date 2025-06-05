@@ -45,6 +45,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.6.1",
+    "react-syntax-highlighter": "^15.6.1",
     "react-use-measure": "^2.1.7",
     "reactflow": "^11.11.4",
     "recharts": "^2.15.3",
