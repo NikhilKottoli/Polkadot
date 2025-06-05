@@ -3,14 +3,14 @@ import React, { useState, useEffect, useRef } from "react";
 const LoadingAnimation = () => {
   const [currentTextIndex, setCurrentTextIndex] = useState(0);
 
-const loadingTexts = [
-  "Parsing prompt into modular smart contract logic",
-  "Mapping intent to decentralized workflow nodes",
-  "Generating visual flowchart of blockchain operations",
-  "Linking Web3 protocols to contract triggers and actions",
-  "Validating flow integrity across smart contract layers",
-  "Preparing deployable contract architecture for review",
-];
+  const loadingTexts = [
+    "Parsing prompt into modular smart contract logic",
+    "Mapping intent to decentralized workflow nodes",
+    "Generating visual flowchart of blockchain operations",
+    "Linking Web3 protocols to contract triggers and actions",
+    "Validating flow integrity across smart contract layers",
+    "Preparing deployable contract architecture for review",
+  ];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -21,7 +21,7 @@ const loadingTexts = [
   }, []);
 
   return (
-    <div className="relative inset-0 bg-black flex items-center justify-center overflow-hidden w-full h-screen">
+    <div className="relative inset-0 bg-black flex items-center justify-center overflow-hidden w-full h-full z-[10]">
       <div className="relative z-10 text-center flex justify-center items-center flex-col p-32">
         {/* Circular gradient background behind logo */}
         <div className="absolute inset-0 flex items-center justify-center">
@@ -109,7 +109,7 @@ const loadingTexts = [
         {/* Cycling Text */}
         <div className="text-white/80 text-lg font-medium h-7 flex items-center justify-center relative z-20 font-mono">
           <span key={currentTextIndex} className="animate-fade-in-out">
-             {loadingTexts[currentTextIndex]} 
+            {loadingTexts[currentTextIndex]}
           </span>
         </div>
 
