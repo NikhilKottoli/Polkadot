@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusSquare, MoreVertical, Play, Copy, Trash2 } from "lucide-react";
+import { PlusSquare, MoreVertical, Play, Copy, Trash2, Code2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useBoardStore from "../../store/store";
 import {
@@ -66,6 +66,19 @@ function SectionCards() {
         <div className="w-full h-full flex justify-center items-center gap-2 border-white/20 border-1 border-dashed rounded-xl flex-col">
           <PlusSquare className="size-8 text-muted-foreground" />
           <p className="text-muted-foreground text-sm">Create a new project</p>
+        </div>
+      </Card>
+
+      <Card
+        onClick={() => {
+          navigate("/solidity-generator");
+        }}
+        className="p-2 hover:translate-y-[-10px] transition-transform cursor-pointer bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-purple-500/20"
+      >
+        <div className="w-full h-full flex justify-center items-center gap-2 border-purple-500/30 border-1 border-dashed rounded-xl flex-col">
+          <Code2 className="size-8 text-purple-400" />
+          <p className="text-purple-300 text-sm font-medium">AI Contract Generator</p>
+          <p className="text-purple-400/70 text-xs text-center px-2">Generate Solidity contracts with AI</p>
         </div>
       </Card>
 
