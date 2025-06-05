@@ -9,6 +9,8 @@ import {
   Plus,
   X,
   Send,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   Tooltip,
@@ -18,6 +20,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { generateFlowchartFromPrompt, SAMPLE_PROMPTS } from "../../../../utils/aiService";
+import useBoardStore from "../../../../store/store";
 
 const menuButtons = [
   {
@@ -56,25 +60,114 @@ export default function ToolMenu() {
   const containerRef = useRef(null);
   const [isAIMode, setIsAIMode] = useState(false);
   const [aiInput, setAiInput] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  
+  // Debug aiInput changes
+  useEffect(() => {
+    console.log("📝 [AI] aiInput changed to:", aiInput);
+    console.log("📝 [AI] aiInput length:", aiInput.length);
+  }, [aiInput]);
+  
+  const { loadAIFlowchart, clearFlowchart } = useBoardStore();
 
-  const handleAIGenerate = () => {
-    console.log("AI Generate:", aiInput);
-    // Dummy function for AI generation
-    // Add your AI generation logic here
-    setAiInput("");
+  const handleAIGenerate = async () => {
+    console.log("🎯 [AI] Starting generation process...");
+    console.log("🎯 [AI] Input:", aiInput);
+    console.log("🎯 [AI] Input length:", aiInput.trim().length);
+    
+    if (!aiInput.trim()) {
+      console.warn("⚠️ [AI] Empty input provided");
+      return;
+    }
+    
+    console.log("🎯 [AI] Setting generating state to true");
+    setIsGenerating(true);
+    setAiError(null);
+    
+    try {
+      console.log("🤖 [AI] Calling generateFlowchartFromPrompt...");
+      console.log("🤖 [AI] Prompt:", aiInput.trim());
+      
+      const result = await generateFlowchartFromPrompt(aiInput.trim());
+      
+      console.log("🎯 [AI] Generation result:", result);
+      console.log("🎯 [AI] Result success:", result.success);
+      
+      if (result.success) {
+        console.log("✅ [AI] Generation successful!");
+        console.log("✅ [AI] Generated data:", result.data);
+        console.log("✅ [AI] Nodes count:", result.data?.nodes?.length);
+        console.log("✅ [AI] Edges count:", result.data?.edges?.length);
+        
+        // Load the generated flowchart
+        console.log("🔄 [AI] Loading flowchart into store...");
+        const loadResult = loadAIFlowchart(result.data);
+        console.log("🔄 [AI] Load result:", loadResult);
+        
+        // Success feedback
+        console.log("✅ [AI] Flowchart loaded successfully!");
+        
+        // Clear input and exit AI mode
+        console.log("🧹 [AI] Cleaning up UI state...");
+        setAiInput("");
+        setIsAIMode(false);
+        
+      } else {
+        // Handle AI generation failure
+        console.error("❌ [AI] Generation failed:", result.error);
+        console.log("🎯 [AI] Has fallback:", !!result.fallback);
+        setAiError(result.error);
+        
+        // Load fallback if available
+        if (result.fallback) {
+          console.log("🔄 [AI] Loading fallback flowchart...");
+          console.log("🔄 [AI] Fallback data:", result.fallback);
+          loadAIFlowchart(result.fallback);
+          setAiInput("");
+          setIsAIMode(false);
+        }
+      }
+      
+    } catch (error) {
+      console.error("❌ [AI] Unexpected error during generation:", error);
+      console.error("❌ [AI] Error stack:", error.stack);
+      setAiError("An unexpected error occurred. Please try again.");
+    } finally {
+      console.log("🎯 [AI] Setting generating state to false");
+      setIsGenerating(false);
+    }
   };
 
   const handleAIExit = () => {
+    console.log("🚪 [AI] Exiting AI mode");
     setAiInput("");
     setIsAIMode(false);
+    setAiError(null);
+    setIsGenerating(false);
+  };
+
+  const handleSamplePrompt = (prompt, event) => {
+    console.log("💡 [AI] Sample prompt selected:", prompt);
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    setAiInput(prompt);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleAIInputKeyDown = (e) => {
+    console.log("⌨️ [AI] Key pressed:", e.key);
     if (e.key === "Enter") {
       e.preventDefault();
+      console.log("⌨️ [AI] Enter pressed - starting generation");
       handleAIGenerate();
     } else if (e.key === "Escape") {
       e.preventDefault();
+      console.log("⌨️ [AI] Escape pressed - exiting");
       handleAIExit();
     }
   };
@@ -82,20 +175,37 @@ export default function ToolMenu() {
   // Handle clicks outside the component to exit AI mode
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        isAIMode &&
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
+      console.log("🖱️ [AI] Click detected, checking if outside container...");
+      console.log("🖱️ [AI] Click target:", event.target);
+      console.log("🖱️ [AI] Container ref exists:", !!containerRef.current);
+      console.log("🖱️ [AI] AI mode active:", isAIMode);
+      
+      // Check if click is on AI-related elements
+      const isClickOnAIElements = 
+        (containerRef.current && containerRef.current.contains(event.target)) ||
+        event.target.closest('[data-ai-element]') ||
+        event.target.classList.contains('bg-gradient-to-r') ||
+        event.target.closest('.bg-gradient-to-r');
+      
+      console.log("🖱️ [AI] Click is on AI elements:", isClickOnAIElements);
+      
+      if (isAIMode && !isClickOnAIElements) {
+        console.log("🖱️ [AI] Click was outside AI interface - exiting AI mode");
         handleAIExit();
+      } else {
+        console.log("🖱️ [AI] Click was on AI interface - staying in AI mode");
       }
     };
 
     if (isAIMode) {
+      console.log("🖱️ [AI] Adding click outside listener");
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
+      if (isAIMode) {
+        console.log("🖱️ [AI] Removing click outside listener");
+      }
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isAIMode]);
@@ -190,7 +300,7 @@ export default function ToolMenu() {
               initial={{ opacity: 0, width: 0, scale: 0.8 }}
               animate={{
                 opacity: 1,
-                width: "320px",
+                width: "400px",
                 scale: 1,
               }}
               exit={{
@@ -202,7 +312,7 @@ export default function ToolMenu() {
                 duration: 0.5,
                 ease: [0.25, 0.46, 0.45, 0.94],
               }}
-              className="flex items-center gap-3 relative z-10"
+              className="flex flex-col gap-2 relative z-10"
             >
               <motion.div
                 initial={{ scale: 0, x: -20 }}
@@ -212,19 +322,22 @@ export default function ToolMenu() {
                   duration: 0.2,
                   ease: [0.25, 0.46, 0.45, 0.94],
                 }}
-                className="flex items-center gap-3 flex-1"
+                className="flex items-center gap-3"
               >
                 <Input
                   ref={inputRef}
                   value={aiInput}
                   onChange={(e) => setAiInput(e.target.value)}
                   onKeyDown={handleAIInputKeyDown}
-                  placeholder="Ask AI anything..."
-                  className="bg-transparent border-pink-400/30 text-white placeholder:text-white/60 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300"
+                  placeholder="Describe your workflow..."
+                  disabled={isGenerating}
+                  className="bg-transparent border-pink-400/30 text-white placeholder:text-white/60 focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20 transition-all duration-300 flex-1"
                 />
+
                 <motion.button
                   onClick={handleAIExit}
-                  className="p-2 hover:bg-pink-500/20 rounded-lg transition-colors duration-200"
+                  disabled={isGenerating}
+                  className="p-2 hover:bg-pink-500/20 rounded-lg transition-colors duration-200 disabled:opacity-50 flex-shrink-0"
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   initial={{ scale: 0, rotate: -90 }}
@@ -234,6 +347,58 @@ export default function ToolMenu() {
                   <X size={16} className="text-pink-400" />
                 </motion.button>
               </motion.div>
+              
+              {/* Error Message */}
+              {aiError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-2 text-red-400 text-xs px-2"
+                >
+                  <AlertCircle size={12} />
+                  <span>{aiError}</span>
+                </motion.div>
+              )}
+              
+              {/* Sample Prompts */}
+              {!aiInput && !aiError && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="flex flex-col gap-2"
+                >
+                  <div className="text-xs text-pink-300/70 px-2">Quick ideas:</div>
+                  <div className="flex flex-wrap gap-1 px-2">
+                    {SAMPLE_PROMPTS.slice(0, 2).map((prompt, index) => (
+                      <motion.button
+                        key={index}
+                        onClick={(event) => handleSamplePrompt(prompt, event)}
+                        className="text-xs px-2 py-1 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded border border-pink-400/30 transition-colors flex-shrink-0"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        title={prompt}
+                      >
+                        {prompt.length > 30 ? prompt.substring(0, 30) + "..." : prompt}
+                      </motion.button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1 px-2">
+                    {SAMPLE_PROMPTS.slice(2, 4).map((prompt, index) => (
+                      <motion.button
+                        key={index + 2}
+                        onClick={(event) => handleSamplePrompt(prompt, event)}
+                        className="text-xs px-2 py-1 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 rounded border border-pink-400/30 transition-colors flex-shrink-0"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        title={prompt}
+                      >
+                        {prompt.length > 30 ? prompt.substring(0, 30) + "..." : prompt}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -298,13 +463,26 @@ export default function ToolMenu() {
             <Tooltip className="z-50" delayDuration={300}>
               <TooltipTrigger asChild>
                 <motion.div
-                  onClick={handleAIGenerate}
-                  className="bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 transition-all flex  rounded-2xl justify-center items-center p-4 gap-2 shadow-lg border border-pink-400/30 cursor-pointer relative overflow-hidden min-w-[80px] "
-                  whileHover={{
+                  onClick={(e) => {
+                    console.log("🎯 [AI] Generate button clicked");
+                    console.log("🎯 [AI] Click event target:", e.target);
+                    console.log("🎯 [AI] Is generating:", isGenerating);
+                    console.log("🎯 [AI] AI Input:", aiInput);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!isGenerating) {
+                      handleAIGenerate();
+                    }
+                  }}
+                  data-ai-element="generate-button"
+                  className={`bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 transition-all flex rounded-2xl justify-center items-center p-4 gap-2 shadow-lg border border-pink-400/30 relative overflow-hidden min-w-[80px] ${
+                    isGenerating ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+                  }`}
+                  whileHover={isGenerating ? {} : {
                     scale: 1.05,
                     boxShadow: "0 0 25px rgba(236, 72, 153, 0.5)",
                   }}
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={isGenerating ? {} : { scale: 0.95 }}
                   animate={{
                     boxShadow: [
                       "0 0 20px rgba(236, 72, 153, 0.4)",
@@ -321,14 +499,22 @@ export default function ToolMenu() {
                   }}
                 >
                   <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{
+                    animate={isGenerating ? { rotate: 360 } : { rotate: 360 }}
+                    transition={isGenerating ? {
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    } : {
                       duration: 8,
                       repeat: Infinity,
                       ease: "linear",
                     }}
                   >
-                    <Sparkle className="text-white" size={20} />
+                    {isGenerating ? (
+                      <Loader2 className="text-white" size={20} />
+                    ) : (
+                      <Sparkle className="text-white" size={20} />
+                    )}
                   </motion.div>
                   <motion.span
                     className="text-xs font-medium text-white/90"
@@ -336,10 +522,10 @@ export default function ToolMenu() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                   >
-                    Generate
+                    {isGenerating ? "Generating..." : "Generate"}
                   </motion.span>
                   <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none"
                     animate={{ x: ["-100%", "100%"] }}
                     transition={{
                       duration: 3,

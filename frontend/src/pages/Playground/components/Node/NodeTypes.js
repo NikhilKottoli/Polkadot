@@ -257,6 +257,149 @@ export const NODE_TYPES = {
       },
     },
 
+    create_asset: {
+      id: "create_asset",
+      label: "Create Asset",
+      icon: "🆕",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Create a new asset on the blockchain",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "asset_created",
+            label: "Asset Created",
+            type: "asset_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_name: { type: "string", default: "", label: "Asset Name" },
+        asset_symbol: { type: "string", default: "", label: "Asset Symbol" },
+        decimals: { type: "number", default: 12, label: "Decimals" },
+        min_balance: { type: "number", default: 1, label: "Minimum Balance" },
+        total_supply: { type: "number", default: 1000000, label: "Total Supply" },
+        admin: { type: "string", default: "", label: "Admin Address" },
+        issuer: { type: "string", default: "", label: "Issuer Address" },
+        freezer: { type: "string", default: "", label: "Freezer Address" },
+      },
+    },
+
+    mint_asset: {
+      id: "mint_asset",
+      label: "Mint Asset",
+      icon: "🧪",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Mint additional tokens for an existing asset",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "mint_result",
+            label: "Mint Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_id: { type: "string", default: "", label: "Asset ID" },
+        amount: { type: "number", default: 0, label: "Amount to Mint" },
+        beneficiary: { type: "string", default: "", label: "Beneficiary Address" },
+      },
+    },
+
+    freeze_asset: {
+      id: "freeze_asset",
+      label: "Freeze Asset",
+      icon: "🧊",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Freeze an asset to prevent transfers",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "freeze_result",
+            label: "Freeze Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_id: { type: "string", default: "", label: "Asset ID" },
+        freeze_type: {
+          type: "select",
+          options: ["account", "asset"],
+          default: "asset",
+          label: "Freeze Type",
+        },
+        target_account: { type: "string", default: "", label: "Target Account (if account freeze)" },
+      },
+    },
+
+    revive_asset: {
+      id: "revive_asset",
+      label: "Revive Asset",
+      icon: "🔄",
+      category: "action",
+      subcategory: "on_chain",
+      description: "Revive a frozen asset to allow transfers",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "revive_result",
+            label: "Revive Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        asset_id: { type: "string", default: "", label: "Asset ID" },
+        revive_type: {
+          type: "select",
+          options: ["account", "asset"],
+          default: "asset",
+          label: "Revive Type",
+        },
+        target_account: { type: "string", default: "", label: "Target Account (if account revive)" },
+      },
+    },
+
     burn_token: {
       id: "burn_token",
       label: "Burn Token",
@@ -288,39 +431,50 @@ export const NODE_TYPES = {
       },
     },
 
-    mint_token: {
-      id: "mint_token",
-      label: "Mint Token",
-      icon: "🧪",
+    dao_voting: {
+      id: "dao_voting",
+      label: "DAO Voting",
+      icon: "🗳️",
       category: "action",
-      subcategory: "on_chain",
-      description: "Mint new tokens",
+      subcategory: "governance",
+      description: "Create or participate in DAO voting process",
       handles: {
         inputs: [
           {
-            id: "trigger_input",
-            label: "Trigger",
+            id: "input",
+            label: "Input",
             type: "event",
             position: "left",
           },
         ],
         outputs: [
           {
-            id: "mint_result",
-            label: "Mint Result",
-            type: "tx_result",
+            id: "vote_passed",
+            label: "Vote Passed",
+            type: "governance_result",
             position: "right",
+            offset: -20,
+          },
+          {
+            id: "vote_failed",
+            label: "Vote Failed",
+            type: "governance_result",
+            position: "right",
+            offset: 20,
           },
         ],
       },
       properties: {
-        asset_id: { type: "string", default: "", label: "Asset ID" },
-        amount: { type: "number", default: 0, label: "Amount to Mint" },
-        beneficiary: {
-          type: "string",
-          default: "",
-          label: "Beneficiary Address",
+        proposal_id: { type: "string", default: "", label: "Proposal ID" },
+        vote_type: {
+          type: "select",
+          options: ["yes", "no", "abstain"],
+          default: "yes",
+          label: "Vote Type",
         },
+        voting_power: { type: "number", default: 1, label: "Voting Power" },
+        threshold_percentage: { type: "number", default: 51, label: "Pass Threshold %" },
+        voting_period_hours: { type: "number", default: 72, label: "Voting Period (hours)" },
       },
     },
 
@@ -406,26 +560,26 @@ export const NODE_TYPES = {
       handles: {
         inputs: [
           {
-            id: "condition_input",
-            label: "Condition Input",
+            id: "input",
+            label: "Input",
             type: "any",
             position: "left",
           },
         ],
         outputs: [
           {
-            id: "true_output",
+            id: "true",
             label: "True",
             type: "any",
             position: "right",
-            offset: -10,
+            offset: -20,
           },
           {
-            id: "false_output",
+            id: "false",
             label: "False",
             type: "any",
             position: "right",
-            offset: 10,
+            offset: 20,
           },
         ],
       },
@@ -522,6 +676,193 @@ export const NODE_TYPES = {
           default: "",
           label: "Custom Template",
         },
+      },
+    },
+
+    // Loop Control Nodes
+    for_loop: {
+      id: "for_loop",
+      label: "For Loop",
+      icon: "🔄",
+      category: "logic",
+      subcategory: "control_flow",
+      description: "Execute actions for a specific number of iterations",
+      handles: {
+        inputs: [
+          {
+            id: "input",
+            label: "Input",
+            type: "any",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "continue",
+            label: "Continue",
+            type: "control",
+            position: "right",
+            offset: -20,
+          },
+          {
+            id: "complete",
+            label: "Complete",
+            type: "control",
+            position: "right",
+            offset: 20,
+          },
+        ],
+      },
+      properties: {
+        loop_type: {
+          type: "select",
+          options: ["array", "range", "count"],
+          default: "count",
+          label: "Loop Type",
+        },
+        start_value: { type: "number", default: 0, label: "Start Value" },
+        end_value: { type: "number", default: 10, label: "End Value" },
+        step: { type: "number", default: 1, label: "Step" },
+      },
+    },
+
+    while_loop: {
+      id: "while_loop",
+      label: "While Loop",
+      icon: "🔁",
+      category: "logic",
+      subcategory: "control_flow",
+      description: "Execute actions while a condition is true",
+      handles: {
+        inputs: [
+          {
+            id: "input",
+            label: "Input",
+            type: "boolean",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "continue",
+            label: "Continue",
+            type: "control",
+            position: "right",
+            offset: -20,
+          },
+          {
+            id: "break",
+            label: "Break",
+            type: "control",
+            position: "right",
+            offset: 20,
+          },
+        ],
+      },
+      properties: {
+        max_iterations: { type: "number", default: 100, label: "Max Iterations" },
+        timeout_seconds: { type: "number", default: 30, label: "Timeout (seconds)" },
+      },
+    },
+
+    switch_logic: {
+      id: "switch_logic",
+      label: "Switch Statement",
+      icon: "🔀",
+      category: "logic",
+      subcategory: "control_flow",
+      description: "Multi-way branching based on value matching",
+      handles: {
+        inputs: [
+          {
+            id: "input",
+            label: "Input",
+            type: "any",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "case1",
+            label: "Case 1",
+            type: "any",
+            position: "right",
+            offset: -30,
+          },
+          {
+            id: "case2",
+            label: "Case 2",
+            type: "any",
+            position: "right",
+            offset: -10,
+          },
+          {
+            id: "case3",
+            label: "Case 3",
+            type: "any",
+            position: "right",
+            offset: 10,
+          },
+          {
+            id: "default",
+            label: "Default",
+            type: "any",
+            position: "right",
+            offset: 30,
+          },
+        ],
+      },
+      properties: {
+        case1_value: { type: "string", default: "", label: "Case 1 Value" },
+        case2_value: { type: "string", default: "", label: "Case 2 Value" },
+        case3_value: { type: "string", default: "", label: "Case 3 Value" },
+        case_sensitive: { type: "boolean", default: true, label: "Case Sensitive" },
+      },
+    },
+
+    parallel_execution: {
+      id: "parallel_execution",
+      label: "Parallel Execution",
+      icon: "⚡",
+      category: "logic",
+      subcategory: "control_flow",
+      description: "Execute multiple branches in parallel",
+      handles: {
+        inputs: [
+          {
+            id: "input",
+            label: "Input",
+            type: "any",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "branch1",
+            label: "Branch 1",
+            type: "any",
+            position: "right",
+            offset: -20,
+          },
+          {
+            id: "branch2",
+            label: "Branch 2",
+            type: "any",
+            position: "right",
+            offset: 0,
+          },
+          {
+            id: "branch3",
+            label: "Branch 3",
+            type: "any",
+            position: "right",
+            offset: 20,
+          },
+        ],
+      },
+      properties: {
+        wait_for_all: { type: "boolean", default: true, label: "Wait for All Branches" },
+        timeout_seconds: { type: "number", default: 60, label: "Timeout (seconds)" },
       },
     },
   },

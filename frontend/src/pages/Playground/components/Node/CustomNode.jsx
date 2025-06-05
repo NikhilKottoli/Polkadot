@@ -1,5 +1,5 @@
 import { Handle, Position } from "@xyflow/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,14 +14,28 @@ import {
   Zap,
   Plus,
   AlertCircle,
+  Edit3,
 } from "lucide-react";
 import { getNodeTypeById } from "./NodeTypes";
 
 const CustomNode = ({ data, id }) => {
   const [hoveredHandle, setHoveredHandle] = useState(null);
+  const [editingProperty, setEditingProperty] = useState(null);
+  const [propertyValues, setPropertyValues] = useState({});
+
+  // Sync local property state with actual node properties
+  useEffect(() => {
+    if (data.properties) {
+      setPropertyValues(data.properties);
+    }
+  }, [data.properties]);
 
   // Get node type configuration
   const nodeTypeConfig = getNodeTypeById(data.nodeType) || {};
+
+  // Check if this is a logic node (if/else, switch, etc.)
+  const isLogicNode = data.nodeType?.includes('logic') || data.nodeType?.includes('dao_voting');
+  const isLoopNode = data.nodeType?.includes('loop');
 
   // Category configurations with enhanced styling
   const categoryConfig = {
@@ -49,7 +63,7 @@ const CustomNode = ({ data, id }) => {
       iconBg: "bg-green-500/30",
       iconColor: "text-white",
       pattern: "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d]",
-      shape: "rounded-lg",
+      shape: isLogicNode ? "diamond" : "rounded-lg",
       borderColor: "border-green-500/20",
     },
     bridge: {
@@ -116,41 +130,104 @@ const CustomNode = ({ data, id }) => {
     "🖇️": Link2,
     "📳": Wallet,
     "📲": Wallet,
+    "🆕": Plus,
+    "🧊": Flame,
+    "⚡": Zap,
+    "🔀": Brain,
   };
 
   // Get configuration
   const config = categoryConfig[data.category] || categoryConfig["logic"];
-  const IconComponent =
-    nodeIconMap[nodeTypeConfig.icon || data.nodeIcon] || config.icon;
+  const IconComponent = nodeIconMap[nodeTypeConfig.icon || data.nodeIcon] || config.icon;
 
-  // Get handles from node type configuration
-  const handles = nodeTypeConfig.handles || { inputs: [], outputs: [] };
-
-  // Calculate handle position - FIXED FORMULA
-  const getHandlePosition = (index, totalHandles) => {
-    if (totalHandles === 1) {
-      return "50%";
+  // Standard handles for most nodes (left input, right output)
+  const getStandardHandles = () => {
+    if (isLogicNode) {
+      // Logic nodes: 1 input (left), 2 outputs (right top/bottom for true/false)
+      return {
+        inputs: [{ id: "input", label: "Input", position: "left" }],
+        outputs: [
+          { id: "true", label: "True", position: "right", offset: -20 },
+          { id: "false", label: "False", position: "right", offset: 20 }
+        ]
+      };
+    } else if (isLoopNode) {
+      // Loop nodes: 1 input, 2 outputs (continue/break)
+      return {
+        inputs: [{ id: "input", label: "Input", position: "left" }],
+        outputs: [
+          { id: "continue", label: "Continue", position: "right", offset: -20 },
+          { id: "break", label: "Break", position: "right", offset: 20 }
+        ]
+      };
+    } else {
+      // Standard nodes: 1 input (left), 1 output (right)
+      return {
+        inputs: [{ id: "input", label: "Input", position: "left" }],
+        outputs: [{ id: "output", label: "Output", position: "right" }]
+      };
     }
-    // Distribute handles evenly around center
-    const spacing = 40; // Adjust spacing as needed
-    return `${50 + (index - (totalHandles - 1) / 2) * spacing}%`;
   };
 
-  // Get properties with defaults
+  // Use configured handles or standard handles
+  const handles = nodeTypeConfig.handles || getStandardHandles();
+
+  // Handle property change
+  const handlePropertyChange = (key, value, type) => {
+    let processedValue = value;
+    
+    // Process value based on type
+    if (type === 'number') {
+      processedValue = parseFloat(value) || 0;
+    } else if (type === 'boolean') {
+      processedValue = value === 'true';
+    } else if (type === 'object') {
+      try {
+        processedValue = JSON.parse(value);
+      } catch (e) {
+        processedValue = {};
+      }
+    }
+
+    const newPropertyValues = { ...propertyValues, [key]: processedValue };
+    
+    // Update local state immediately for responsive UI
+    setPropertyValues(newPropertyValues);
+    
+    // Update the node data in the store
+    if (data.onUpdateProperties) {
+      data.onUpdateProperties(id, newPropertyValues);
+    }
+  };
+
+  // Get properties with current values
   const getPropertiesWithDefaults = () => {
     const typeProperties = nodeTypeConfig.properties || {};
-    const currentProperties = data.properties || {};
-
+    const currentProperties = propertyValues || {};
     const mergedProperties = {};
+    
+    // First, add all properties from the node type configuration
     Object.keys(typeProperties).forEach((key) => {
       const typeProp = typeProperties[key];
       mergedProperties[key] = {
         ...typeProp,
-        value:
-          currentProperties[key] !== undefined
-            ? currentProperties[key]
-            : typeProp.default,
+        value: currentProperties[key] !== undefined ? currentProperties[key] : typeProp.default,
       };
+    });
+
+    // Then, add any additional properties that exist in the current node but not in the type config
+    Object.keys(currentProperties).forEach((key) => {
+      if (!mergedProperties[key]) {
+        const value = currentProperties[key];
+        mergedProperties[key] = {
+          type: typeof value === 'boolean' ? 'boolean' : 
+                typeof value === 'number' ? 'number' : 
+                typeof value === 'object' ? 'object' : 'string',
+          label: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
+          value: value,
+          default: value
+        };
+      }
     });
 
     return mergedProperties;
@@ -158,152 +235,213 @@ const CustomNode = ({ data, id }) => {
 
   const properties = getPropertiesWithDefaults();
 
-  // Handle add button click
-  const handleAddConnection = (handleId, handleType) => {
-    if (data.onAddConnection) {
-      data.onAddConnection(id, handleId, handleType);
+  // Render property value based on type - FIXED
+  const renderPropertyValue = (key, property) => {
+    const value = property.value !== undefined ? property.value : property.default;
+    
+    // Common event handlers to prevent event bubbling
+    const handleInputClick = (e) => {
+      e.stopPropagation();
+    };
+    
+    const handleInputFocus = (e) => {
+      e.stopPropagation();
+    };
+    
+    if (editingProperty === key) {
+      return (
+        <input
+          type={property.type === 'number' ? 'number' : 'text'}
+          value={property.type === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+          onChange={(e) => handlePropertyChange(key, e.target.value, property.type)}
+          onBlur={() => setEditingProperty(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') setEditingProperty(null);
+            if (e.key === 'Escape') setEditingProperty(null);
+          }}
+          onClick={handleInputClick}
+          onFocus={handleInputFocus}
+          className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"
+          autoFocus
+        />
+      );
+    }
+
+    switch (property.type) {
+      case "boolean":
+        return (
+          <select
+            value={value ? "true" : "false"}
+            onChange={(e) => handlePropertyChange(key, e.target.value, property.type)}
+            onClick={handleInputClick}
+            onFocus={handleInputFocus}
+            className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"
+          >
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        );
+      case "select":
+        return (
+          <select
+            value={String(value || "")}
+            onChange={(e) => handlePropertyChange(key, e.target.value, property.type)}
+            onClick={handleInputClick}
+            onFocus={handleInputFocus}
+            className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"
+          >
+            {property.options?.map(option => (
+              <option key={option} value={option}>{option}</option>
+            ))}
+          </select>
+        );
+      case "object":
+        const objValue = value && typeof value === 'object' ? value : {};
+        const keys = Object.keys(objValue);
+        const displayText = keys.length === 0 ? "{}" : 
+          keys.length <= 3 ? 
+            keys.map(k => `${k}: ${String(objValue[k]).substring(0, 8)}`).join(', ') :
+            `{${keys.length} properties}`;
+        return (
+          <div 
+            className="cursor-pointer flex items-center gap-1 px-2 py-1 bg-gray-800 border border-gray-600 rounded hover:border-blue-500"
+            onClick={(e) => {
+              handleInputClick(e);
+              setEditingProperty(key);
+            }}
+          >
+            <span className="text-xs text-white flex-1">
+              {displayText}
+            </span>
+            <Edit3 size={10} className="text-gray-400" />
+          </div>
+        );
+      case "text":
+        const textValue = String(value || "");
+        return (
+          <div 
+            className="cursor-pointer flex items-center gap-1 px-2 py-1 bg-gray-800 border border-gray-600 rounded hover:border-blue-500"
+            onClick={(e) => {
+              handleInputClick(e);
+              setEditingProperty(key);
+            }}
+          >
+            <span className="text-xs text-white flex-1">
+              {textValue.length > 25 ? textValue.substring(0, 25) + "..." : textValue || "Enter text..."}
+            </span>
+            <Edit3 size={10} className="text-gray-400" />
+          </div>
+        );
+      case "number":
+        return (
+          <input
+            type="number"
+            value={String(value || "")}
+            onChange={(e) => handlePropertyChange(key, e.target.value, property.type)}
+            onClick={handleInputClick}
+            onFocus={handleInputFocus}
+            className="w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded text-white focus:border-blue-500 focus:outline-none"
+          />
+        );
+      default:
+        return (
+          <div 
+            className="cursor-pointer flex items-center gap-1 px-2 py-1 bg-gray-800 border border-gray-600 rounded hover:border-blue-500"
+            onClick={(e) => {
+              handleInputClick(e);
+              setEditingProperty(key);
+            }}
+          >
+            <span className="text-xs text-white flex-1">
+              {String(value || "").substring(0, 25)}{String(value || "").length > 25 ? "..." : ""}
+            </span>
+            <Edit3 size={10} className="text-gray-400" />
+          </div>
+        );
     }
   };
 
-  // Render property value based on type
-  const renderPropertyValue = (property) => {
-    switch (property.type) {
-      case "boolean":
-        return property.value ? "true" : "false";
-      case "select":
-        return property.value || property.default;
-      case "object":
-        return JSON.stringify(property.value || property.default);
-      case "text":
-        return (
-          String(property.value || property.default).substring(0, 30) +
-          (String(property.value || property.default).length > 30 ? "..." : "")
-        );
-      default:
-        return String(property.value || property.default);
+  // Render handle component
+  const renderHandle = (handle, type, index = 0, total = 1) => {
+    const isInput = type === "target";
+    const position = handle.position === "left" ? Position.Left : 
+                   handle.position === "right" ? Position.Right :
+                   handle.position === "top" ? Position.Top : Position.Bottom;
+    
+    // Calculate position based on handle offset or distribute evenly
+    let styleTop = "50%";
+    if (handle.offset) {
+      styleTop = `calc(50% + ${handle.offset}px)`;
+    } else if (total > 1) {
+      const spacing = 40;
+      styleTop = `calc(50% + ${(index - (total - 1) / 2) * spacing}px)`;
     }
+
+    const handleStyle = {
+      backgroundColor: isInput ? "#3b82f6" : "#10b981",
+      borderColor: isInput ? "#1d4ed8" : "#059669",
+      borderWidth: "2px",
+      borderRadius: "50%",
+      width: "12px",
+      height: "12px",
+      cursor: "crosshair",
+      ...(position === Position.Left && { left: "-6px", top: styleTop, transform: "translateY(-50%)" }),
+      ...(position === Position.Right && { right: "-6px", top: styleTop, transform: "translateY(-50%)" }),
+      ...(position === Position.Top && { top: "-6px", left: "50%", transform: "translateX(-50%)" }),
+      ...(position === Position.Bottom && { bottom: "-6px", left: "50%", transform: "translateX(-50%)" }),
+    };
+
+    return (
+      <Handle
+        key={`${type}-${handle.id}`}
+        type={type}
+        position={position}
+        id={handle.id}
+        style={handleStyle}
+        onMouseEnter={() => setHoveredHandle(`${type}-${handle.id}`)}
+        onMouseLeave={() => setHoveredHandle(null)}
+      />
+    );
   };
 
   return (
     <div className="relative group">
-      {/* Input Handles - FIXED POSITIONING */}
-      {handles.inputs &&
-        handles.inputs.map((handle, index) => {
-          const handleTop = getHandlePosition(index, handles.inputs.length);
+      {/* Render input handles */}
+      {handles.inputs?.map((handle, index) => 
+        renderHandle(handle, "target", index, handles.inputs.length)
+      )}
 
-          return (
-            <div key={`input-${handle.id}`} className="relative">
-              <Handle
-                type="target"
-                position={Position.Left}
-                id={handle.id}
-                className="w-6 h-6 border-3 transition-all duration-300 z-10 hover:scale-110"
-                style={{
-                  backgroundColor: "#3b82f6",
-                  borderColor: "#1d4ed8",
-                  borderWidth: "3px",
-                  boxShadow:
-                    "0 4px 12px rgba(59, 130, 246, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.2)",
-                  borderRadius: "50%",
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  cursor: "crosshair",
-                  opacity: "1",
-                }}
-                onMouseEnter={() => setHoveredHandle(`input-${handle.id}`)}
-                onMouseLeave={() => setHoveredHandle(null)}
-              />
-
-              {/* Always visible handle indicator */}
-              <div
-                className="absolute w-2 h-2 bg-white rounded-full pointer-events-none"
-                style={{
-                  left: "8px",
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  boxShadow: "0 0 4px rgba(0, 0, 0, 0.3)",
-                }}
-              />
-
-              {/* Enhanced Handle Label */}
-              <div
-                className={`absolute -left-24 text-xs px-3 py-2 rounded-lg transition-all duration-300 pointer-events-none ${
-                  hoveredHandle === `input-${handle.id}`
-                    ? "opacity-100 scale-100"
-                    : "opacity-70 scale-95"
-                }`}
-                style={{
-                  color: "#e5e7eb",
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(59, 130, 246, 0.3)",
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-                }}
-              >
-                <ArrowRight size={12} className="inline mr-2 text-blue-400" />
-                {handle.label}
-              </div>
-
-              {/* Enhanced Add Connection Button */}
-              <button
-                className={`absolute -left-10 w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full flex items-center justify-center transition-all duration-300 z-20 shadow-lg hover:shadow-xl hover:scale-110 ${
-                  hoveredHandle === `input-${handle.id}`
-                    ? "opacity-100"
-                    : "opacity-0"
-                }`}
-                style={{
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  border: "2px solid rgba(255, 255, 255, 0.2)",
-                }}
-                onClick={() => handleAddConnection(handle.id, "input")}
-              >
-                <Plus size={14} className="text-white drop-shadow-sm" />
-              </button>
-            </div>
-          );
-        })}
+      {/* Render output handles */}
+      {handles.outputs?.map((handle, index) => 
+        renderHandle(handle, "source", index, handles.outputs.length)
+      )}
 
       {/* Main Node Container */}
       <div
         className={`
-        relative min-w-72 max-w-80 ${config.pattern}
-        border ${config.borderColor} ${config.accent} rounded-[20px] 
-        hover:shadow-xl
-        transform  transition-all duration-300 ease-out
-        backdrop-blur-sm  
-        overflow-hidden
-      `}
+          relative min-w-72 max-w-80 ${config.pattern}
+          border ${config.borderColor} ${config.accent}
+          ${config.shape} hover:shadow-xl transform transition-all duration-300 ease-out
+          backdrop-blur-sm overflow-hidden
+        `}
       >
         <div className="absolute -top-0 -right-0 flex justify-end items-start">
-          <div
-            className={`text-xs font-bold text-white uppercase mb-1 p-2 py-1 ${config.iconBg} rounded-bl-lg inline`}
-          >
+          <div className={`text-xs font-bold text-white uppercase mb-1 p-2 py-1 ${config.iconBg} rounded-bl-lg inline`}>
             {data.category || "Node"}
           </div>
-          <div
-            className={`${config.iconBg} ${config.shape} p-3 flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-tl-[0] rounded-br-[0]`}
-          >
+          <div className={`${config.iconBg} ${config.shape} p-3 flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-tl-[0] rounded-br-[0]`}>
             <IconComponent size={24} className={config.iconColor} />
           </div>
         </div>
 
         {/* Header Section */}
-        <div
-          className="flex items-start gap-4 p-5 pb-3"
-          style={{ backgroundColor: "#262626" }}
-        >
+        <div className="flex items-start gap-4 p-5 pb-3" style={{ backgroundColor: "#262626" }}>
           <div className="flex-1 min-w-0">
             <div className="text-white font-bold text-lg leading-tight mb-1">
               {nodeTypeConfig.label || data.label || "Custom Node"}
             </div>
             {(nodeTypeConfig.description || data.description) && (
-              <div
-                className="text-sm opacity-90 leading-relaxed  max-w-[200px]"
-                style={{ color: "#cccccc" }}
-              >
+              <div className="text-sm opacity-90 leading-relaxed max-w-[200px]" style={{ color: "#cccccc" }}>
                 {nodeTypeConfig.description || data.description}
               </div>
             )}
@@ -311,13 +449,10 @@ const CustomNode = ({ data, id }) => {
             {/* Subcategory Badge */}
             {nodeTypeConfig.subcategory && (
               <div className="mt-2">
-                <span
-                  className="text-xs px-2 py-1 rounded-full"
-                  style={{
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    color: "#999999",
-                  }}
-                >
+                <span className="text-xs px-2 py-1 rounded-full" style={{
+                  backgroundColor: "rgba(255, 255, 255, 0.1)",
+                  color: "#999999",
+                }}>
                   {nodeTypeConfig.subcategory.replace("_", " ")}
                 </span>
               </div>
@@ -327,47 +462,25 @@ const CustomNode = ({ data, id }) => {
 
         <div className="border mb-4" style={{ borderColor: "#404040" }}></div>
 
-        {/* Properties Section */}
+        {/* Properties Section - FIXED TO BE EDITABLE */}
         <div className="p-5">
           {Object.keys(properties).length > 0 && (
             <div className="space-y-3">
-              <div
-                className="text-xs font-bold uppercase tracking-wider "
-                style={{ color: "#999999" }}
-              >
+              <div className="text-xs font-bold uppercase tracking-wider" style={{ color: "#999999" }}>
                 Configuration
               </div>
-              <div
-                className="border rounded-lg p-3 space-y-2"
-                style={{
-                  backgroundColor: "rgba(0, 0, 0, 0.3)",
-                  borderColor: "#404040",
-                }}
-              >
+              <div className="border rounded-lg p-3 space-y-3" style={{
+                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                borderColor: "#404040",
+              }}>
                 {Object.entries(properties).map(([key, property]) => (
-                  <div
-                    key={key}
-                    className="flex justify-between items-center text-sm"
-                  >
-                    <span
-                      className="capitalize font-medium"
-                      style={{ color: "#999999" }}
-                    >
+                  <div key={key} className="space-y-1">
+                    <label className="block text-xs font-medium" style={{ color: "#999999" }}>
                       {property.label || key}:
-                    </span>
-                    <span
-                      className={`font-mono text-xs px-2 py-1 rounded ${
-                        property.readonly ? "bg-gray-800" : ""
-                      }`}
-                      style={{
-                        color: property.readonly ? "#666666" : "#cccccc",
-                        backgroundColor: property.readonly
-                          ? "#111111"
-                          : "#171717",
-                      }}
-                    >
-                      {renderPropertyValue(property)}
-                    </span>
+                    </label>
+                    <div className="w-full">
+                      {renderPropertyValue(key, property)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -376,102 +489,26 @@ const CustomNode = ({ data, id }) => {
 
           {/* Node Type Info */}
           {nodeTypeConfig.id && (
-            <div
-              className="mt-4 pt-3 border-t"
-              style={{ borderColor: "#404040" }}
-            >
+            <div className="mt-4 pt-3 border-t" style={{ borderColor: "#404040" }}>
               <div className="text-xs" style={{ color: "#666666" }}>
-                Node Type:{" "}
-                <span className="font-mono">{nodeTypeConfig.id}</span>
+                Node Type: <span className="font-mono">{nodeTypeConfig.id}</span>
               </div>
             </div>
           )}
         </div>
-
-        <div className="absolute inset-0 rounded-xl bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
       </div>
 
-      {/* Output Handles - FIXED POSITIONING */}
-      {handles.outputs &&
-        handles.outputs.map((handle, index) => {
-          const handleTop = getHandlePosition(index, handles.outputs.length);
-
-          return (
-            <div key={`output-${handle.id}`} className="relative">
-              <Handle
-                type="source"
-                position={Position.Right}
-                id={handle.id}
-                className="w-6 h-6 border-3 transition-all duration-300 z-10 hover:scale-110"
-                style={{
-                  backgroundColor: "#10b981",
-                  borderColor: "#059669",
-                  borderWidth: "3px",
-                  width: "16px",
-                  height: "16px",
-                  boxShadow:
-                    "0 4px 12px rgba(16, 185, 129, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.2)",
-                  borderRadius: "50%",
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  cursor: "crosshair",
-                  opacity: "1",
-                }}
-                onMouseEnter={() => setHoveredHandle(`output-${handle.id}`)}
-                onMouseLeave={() => setHoveredHandle(null)}
-              />
-
-              {/* Always visible handle indicator */}
-              <div
-                className="absolute w-2 h-2 bg-white rounded-full pointer-events-none"
-                style={{
-                  right: "8px",
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  boxShadow: "0 0 4px rgba(0, 0, 0, 0.3)",
-                }}
-              />
-
-              {/* Enhanced Handle Label */}
-              <div
-                className={`absolute -right-24 text-xs px-3 py-2 rounded-lg transition-all duration-300 pointer-events-none ${
-                  hoveredHandle === `output-${handle.id}`
-                    ? "opacity-100 scale-100"
-                    : "opacity-70 scale-95"
-                }`}
-                style={{
-                  color: "#e5e7eb",
-                  backgroundColor: "rgba(17, 24, 39, 0.95)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(16, 185, 129, 0.3)",
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-                }}
-              >
-                {handle.label}
-                <ArrowLeft size={12} className="inline ml-2 text-emerald-400" />
-              </div>
-
-              {/* Enhanced Add Connection Button */}
-              <button
-                className={`absolute -right-10 w-8 h-8 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 rounded-full flex items-center justify-center transition-all duration-300 z-20 shadow-lg hover:shadow-xl hover:scale-110 ${
-                  hoveredHandle === `output-${handle.id}`
-                    ? "opacity-100"
-                    : "opacity-0"
-                }`}
-                style={{
-                  top: handleTop,
-                  transform: "translateY(-50%)",
-                  border: "2px solid rgba(255, 255, 255, 0.2)",
-                }}
-                onClick={() => handleAddConnection(handle.id, "output")}
-              >
-                <Plus size={14} className="text-white drop-shadow-sm" />
-              </button>
-            </div>
-          );
-        })}
+      {/* Handle Labels */}
+      {hoveredHandle && (
+        <div className="absolute bg-gray-900 text-white text-xs px-2 py-1 rounded shadow-lg pointer-events-none z-50"
+             style={{
+               top: "50%",
+               left: hoveredHandle.includes('input') ? "-60px" : "calc(100% + 10px)",
+               transform: "translateY(-50%)"
+             }}>
+          {hoveredHandle.replace('input-', '').replace('output-', '').replace('target-', '').replace('source-', '')}
+        </div>
+      )}
     </div>
   );
 };
