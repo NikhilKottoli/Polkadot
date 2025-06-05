@@ -9,7 +9,7 @@ import FeaturesSection from "./components/FeaturesSection";
 import IntegrationsSection from "./components/IntegrationsSection";
 import TeamSection from "./components/TeamSection";
 import FooterSection from "./components/FooterSection";
-import LoadingAnimation from "./components/LoadingAnimation";
+import LoadingAnimation from "../../components/LoadingAnimation";
 
 const transitionVariants = {
   item: {

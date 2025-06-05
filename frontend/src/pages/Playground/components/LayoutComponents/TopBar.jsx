@@ -11,7 +11,7 @@ import {
   X,
   Code,
   Download,
-  Copy
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ export default function TopBar() {
   const [isEditing, setIsEditing] = useState(false);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [isGeneratingSolidity, setIsGeneratingSolidity] = useState(false);
-  const [generatedSolidity, setGeneratedSolidity] = useState('');
+  const [generatedSolidity, setGeneratedSolidity] = useState("");
   const [showSolidityModal, setShowSolidityModal] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
@@ -45,7 +45,7 @@ export default function TopBar() {
   const handleGenerateSolidity = async () => {
     if (!currentProject) return;
 
-    console.log('🔨 [TopBar] Starting Solidity generation');
+    console.log("🔨 [TopBar] Starting Solidity generation");
     setIsGeneratingSolidity(true);
 
     try {
@@ -53,18 +53,22 @@ export default function TopBar() {
       const edges = getEdges();
 
       if (nodes.length === 0) {
-        alert('No nodes in the flowchart to generate from!');
+        alert("No nodes in the flowchart to generate from!");
         return;
       }
 
-      const solidityCode = generateSolidityFromFlowchart(nodes, edges, currentProject.name);
+      const solidityCode = generateSolidityFromFlowchart(
+        nodes,
+        edges,
+        currentProject.name
+      );
       setGeneratedSolidity(solidityCode);
       setShowSolidityModal(true);
 
-      console.log('✅ [TopBar] Solidity generation completed');
+      console.log("✅ [TopBar] Solidity generation completed");
     } catch (error) {
-      console.error('❌ [TopBar] Solidity generation failed:', error);
-      alert('Failed to generate Solidity code. Please try again.');
+      console.error("❌ [TopBar] Solidity generation failed:", error);
+      alert("Failed to generate Solidity code. Please try again.");
     } finally {
       setIsGeneratingSolidity(false);
     }
@@ -73,19 +77,19 @@ export default function TopBar() {
   // Copy Solidity code to clipboard
   const copySolidityToClipboard = () => {
     navigator.clipboard.writeText(generatedSolidity);
-    console.log('📋 [TopBar] Solidity code copied to clipboard');
+    console.log("📋 [TopBar] Solidity code copied to clipboard");
   };
 
   // Download Solidity code as file
   const downloadSolidityCode = () => {
-    const element = document.createElement('a');
-    const file = new Blob([generatedSolidity], { type: 'text/plain' });
+    const element = document.createElement("a");
+    const file = new Blob([generatedSolidity], { type: "text/plain" });
     element.href = URL.createObjectURL(file);
-    element.download = `${currentProject?.name || 'contract'}.sol`;
+    element.download = `${currentProject?.name || "contract"}.sol`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    console.log('💾 [TopBar] Solidity code downloaded');
+    console.log("💾 [TopBar] Solidity code downloaded");
   };
 
   // Initialize edit form when editing starts
@@ -255,6 +259,7 @@ export default function TopBar() {
           </Button>
           <img className="" src="/logo.svg" alt="Logo" />
           <p className="font-bold">Polkaflow</p>
+          <div className="w-84" />
         </div>
 
         {/* Center Section - Project Info */}
@@ -326,12 +331,13 @@ export default function TopBar() {
         <div className="flex gap-2 items-center">
           <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
             <div
-              className={`w-2 h-2 rounded-full ${currentProject.status === "deployed"
+              className={`w-2 h-2 rounded-full ${
+                currentProject.status === "deployed"
                   ? "bg-green-500"
                   : currentProject.status === "draft"
-                    ? "bg-yellow-500"
-                    : "bg-gray-500"
-                }`}
+                  ? "bg-yellow-500"
+                  : "bg-gray-500"
+              }`}
             />
             <span className="capitalize">{currentProject.status}</span>
           </div>
@@ -372,7 +378,9 @@ export default function TopBar() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl max-h-[80vh] w-full mx-4 overflow-hidden flex flex-col">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Generated Solidity Contract</h3>
+              <h3 className="text-lg font-semibold">
+                Generated Solidity Contract
+              </h3>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -401,7 +409,9 @@ export default function TopBar() {
             </div>
             <div className="flex-1 overflow-auto">
               <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg text-sm overflow-auto">
-                <code className="text-xs text-gray-800 dark:text-gray-200">{generatedSolidity}</code>
+                <code className="text-xs text-gray-800 dark:text-gray-200">
+                  {generatedSolidity}
+                </code>
               </pre>
             </div>
           </div>
