@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import useBoardStore from "../../../../store/store";
+import GeneratedCodeModal from "../Board/GeneratedCodeModal";
+const { project } = useBoardStore.getState();
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -23,7 +25,8 @@ export default function TopBar() {
     name: "",
     description: "",
   });
-
+  const [generatedCode, setGeneratedCode] = React.useState("");
+  const [modalOpen, setModalOpen] = React.useState(false);
   const {
     getCurrentProject,
     updateProject,
@@ -31,7 +34,7 @@ export default function TopBar() {
     getEdges,
     saveProjectThumbnail,
   } = useBoardStore();
-
+  const geminiKey = ""; // put your key here Lil bro
   const currentProject = getCurrentProject();
 
   // Initialize edit form when editing starts
@@ -60,6 +63,45 @@ export default function TopBar() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditForm({ name: "", description: "" });
+  };
+
+  const data = {
+      nodes: project?.nodes || [],
+      edges: project?.edges || [],
+      description: project?.description || "",
+  }
+
+const handleGenerate = async ({ example }) => {
+
+  const instructions = "Give me solidity code for the following data and make sure you provide the full code (don't leave it empty at any cost. use the description etc to generate something don't leave it empty). Here are the nodes and edges in the project workflow.  give me code for the logic as you understand and nothing else, no explaination, no comments, just the code. The code should be in a single file and should not include any imports or package.json. The code should be a complete and functional smart contract that can be deployed on the Ethereum network. The code should be optimized for gas efficiency and should follow best practices for security and performance.";
+  const prompt = `
+  Instructions:
+  ${instructions}
+
+  Data:
+  ${JSON.stringify(data, null, 2)}`;
+
+    try {
+      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        }),
+      });
+
+      const result = await res.json();
+      const code = result.candidates[0].content.parts[0].text;
+      console.log('Generated code:', code);
+      setGeneratedCode(code);
+      setModalOpen(true);
+      return code;
+    } catch (error) {
+      console.error('Error calling Gemini:', error);
+      return { error: error.message };
+    }
   };
 
   // Save project workflow
@@ -294,12 +336,12 @@ export default function TopBar() {
 
         <Button
           size="sm"
-          onClick={handleDeploy}
-          disabled={currentProject.status === "deployed"}
+          onClick={handleGenerate}
         >
           <Play className="w-4 h-4 mr-2" />
-          {currentProject.status === "deployed" ? "Deployed" : "Deploy"}
+          Generate Code
         </Button>
+        <GeneratedCodeModal open={modalOpen} code={generatedCode} onClose={() => setModalOpen(false)} />
       </div>
     </div>
   );
