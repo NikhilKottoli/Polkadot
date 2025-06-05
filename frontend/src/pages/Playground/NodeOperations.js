@@ -9,6 +9,8 @@ export const useNodeOperations = () => {
     duplicateNode,
     selectedNode,
     setSelectedNode,
+    updateExecutionOrder,
+    exportFlowchart,
   } = useBoardStore();
 
   const createNode = useCallback(
@@ -17,12 +19,16 @@ export const useNodeOperations = () => {
         id: `node_${Date.now()}`,
         type: "custom",
         position,
+        sequence: Date.now(), // Add sequence for execution order
         data: {
           category: nodeType,
           nodeIcon: "🔧",
           label: `New ${nodeType} Node`,
           description: "Configure this node",
-          properties: {},
+          properties: {
+            input: {}, // Add input/output properties for data flow
+            output: {},
+          },
           status: "pending",
           nodeType: nodeType,
         },
@@ -98,7 +104,10 @@ export const useNodeOperations = () => {
     (nodeId) => {
       updateNode(nodeId, {
         data: {
-          properties: {},
+          properties: {
+            input: {},
+            output: {},
+          },
           status: "pending",
         },
       });
@@ -108,8 +117,15 @@ export const useNodeOperations = () => {
 
   const updateNodeProperties = useCallback(
     (nodeId, properties) => {
+      // Ensure input/output properties are preserved
       updateNode(nodeId, {
-        data: { properties },
+        data: {
+          properties: {
+            ...properties,
+            input: properties.input || {},
+            output: properties.output || {},
+          },
+        },
       });
     },
     [updateNode]
@@ -133,9 +149,22 @@ export const useNodeOperations = () => {
     [updateNode]
   );
 
+  const updateNodeSequence = useCallback(
+    (nodeId, newSequence) => {
+      updateNode(nodeId, {
+        sequence: newSequence,
+      });
+    },
+    [updateNode]
+  );
+
   const clearSelection = useCallback(() => {
     setSelectedNode(null);
   }, [setSelectedNode]);
+
+  const getFlowchartData = useCallback(() => {
+    return exportFlowchart();
+  }, [exportFlowchart]);
 
   return {
     createNode,
@@ -145,6 +174,7 @@ export const useNodeOperations = () => {
     updateNodeProperties,
     updateNodeLabel,
     updateNodeStatus,
+    updateNodeSequence,
     // New selection methods
     selectNode,
     selectedNode,
@@ -154,5 +184,6 @@ export const useNodeOperations = () => {
     deleteSelectedNode,
     resetNodeToDefaults,
     clearSelection,
+    getFlowchartData,
   };
 };

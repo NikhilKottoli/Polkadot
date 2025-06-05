@@ -21,6 +21,8 @@ import NodePalette from "../LayoutComponents/PropertiesMenu";
 import TopBar from "../LayoutComponents/TopBar";
 import { NodeContextMenu } from "../Node/NodeContextMenu";
 import { useNodeOperations } from "../../NodeOperations";
+import EdgeConditionEditor from "./EdgeConditionEditor";
+import ConnectionTest from "./ConnectionTest";
 
 // CSS to remove all possible borders and outlines
 const flowStyles = `
@@ -81,6 +83,7 @@ const FlowBoard = ({ projectId }) => {
     onNodesChange,
     onEdgesChange,
     onConnect,
+    updateNodeProperties,
   } = useBoardStore();
 
   const {
@@ -93,6 +96,8 @@ const FlowBoard = ({ projectId }) => {
   } = useNodeOperations();
 
   const [contextMenu, setContextMenu] = useState(null);
+  const [selectedEdge, setSelectedEdge] = useState(null);
+  const [showEdgeEditor, setShowEdgeEditor] = useState(false);
   const currentProject = getCurrentProject();
 
   // Set current project when component mounts or projectId changes
@@ -110,6 +115,33 @@ const FlowBoard = ({ projectId }) => {
     },
     [handleNodeClick]
   );
+
+  // Handle edge double-click for condition editing
+  const onEdgeDoubleClick = useCallback(
+    (event, edge) => {
+      event.stopPropagation();
+      setSelectedEdge(edge);
+      setShowEdgeEditor(true);
+    },
+    []
+  );
+
+  // Handle connection validation
+  const isValidConnection = useCallback((connection) => {
+    // Allow all connections for now - can add validation logic later
+    console.log('Validating connection:', connection);
+    return true;
+  }, []);
+
+  // Handle connection start
+  const onConnectStart = useCallback((event, { nodeId, handleId, handleType }) => {
+    console.log('Connection started:', { nodeId, handleId, handleType });
+  }, []);
+
+  // Handle connection end
+  const onConnectEnd = useCallback((event) => {
+    console.log('Connection ended');
+  }, []);
 
   // Handle right-click context menu
   const onNodeContextMenu = useCallback(
@@ -166,7 +198,14 @@ const FlowBoard = ({ projectId }) => {
     ...nodeTypes,
     custom: (props) => (
       <div className={selectedNode === props.id ? "custom-node-selected" : ""}>
-        <CustomNode {...props} selected={selectedNode === props.id} />
+        <CustomNode 
+          {...props} 
+          selected={selectedNode === props.id}
+          data={{
+            ...props.data,
+            onUpdateProperties: updateNodeProperties
+          }}
+        />
       </div>
     ),
   };
@@ -210,9 +249,13 @@ const FlowBoard = ({ projectId }) => {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onConnectStart={onConnectStart}
+          onConnectEnd={onConnectEnd}
+          isValidConnection={isValidConnection}
           nodeTypes={enhancedNodeTypes}
           onNodeClick={onNodeClick}
           onNodeContextMenu={onNodeContextMenu}
+          onEdgeDoubleClick={onEdgeDoubleClick}
           onPaneClick={onPaneClick}
           panOnScroll
           selectionOnDrag
@@ -230,10 +273,21 @@ const FlowBoard = ({ projectId }) => {
             width: "100%",
             height: "100%",
           }}
-          minZoom={0.1}
-          maxZoom={2}
+          minZoom={0.05}
+          maxZoom={4}
+          defaultZoom={0.8}
+          zoomOnScroll={true}
+          zoomOnPinch={true}
+          zoomOnDoubleClick={false}
+          preventScrolling={false}
           snapToGrid={true}
           snapGrid={[15, 15]}
+          connectionLineType="smoothstep"
+          connectionLineStyle={{ stroke: "#666666", strokeWidth: 2 }}
+          connectionMode="loose"
+          connectOnClick={false}
+          deleteKeyCode={null}
+          nodeOrigin={[0.5, 0.5]}
         >
           <Background
             variant="dots"
@@ -295,6 +349,9 @@ const FlowBoard = ({ projectId }) => {
                   Selected: {selectedNode}
                 </div>
               )}
+              <div className="text-xs text-gray-500 mt-1 pt-1 border-t border-gray-700">
+                💡 Double-click edges to edit conditions
+              </div>
             </div>
           </Panel>
 
@@ -318,6 +375,20 @@ const FlowBoard = ({ projectId }) => {
             onClose={() => setContextMenu(null)}
           />
         )}
+
+        {/* Edge Condition Editor */}
+        {showEdgeEditor && selectedEdge && (
+          <EdgeConditionEditor
+            edge={selectedEdge}
+            onClose={() => {
+              setShowEdgeEditor(false);
+              setSelectedEdge(null);
+            }}
+          />
+        )}
+
+        {/* Debug Component - Remove in production */}
+        {process.env.NODE_ENV === 'development' && <ConnectionTest />}
       </div>
     </div>
   );
