@@ -1,5 +1,5 @@
 // AI Service for OpenAI Integration
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+const OPENAI_API_KEY = "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";
 
 // Validate API key is available
 if (!OPENAI_API_KEY) {
@@ -64,53 +64,58 @@ ${Object.entries(AVAILABLE_NODE_TYPES).map(([category, nodes]) =>
   `${category.toUpperCase()}: ${nodes.join(', ')}`
 ).join('\n')}
 
-RULES:
-1. Always start with a trigger node
-2. Use logic nodes for decision-making (if_else_logic, switch_logic)
-3. Connect nodes logically with proper sequence
-4. Each node must have realistic property values
-5. Position nodes left-to-right in execution order
-6. Use appropriate spacing (200px horizontal, 100px vertical offsets)
+Rules:
 
-RESPONSE FORMAT:
-Return ONLY valid JSON with this exact structure:
+Always start with a trigger node.
+
+Use logic nodes for all decision points (if_else_logic, switch_logic).
+
+Connect nodes in a logical, left-to-right sequence.
+
+Each node must have realistic, specific property values (e.g., real asset IDs, addresses, durations).
+
+Position nodes with x starting at 100 and increasing by 300 for each column; y at 200 for the main flow, 100 or 300 for branches.
+
+Label all edges clearly, especially for logic nodes (e.g., "true", "false").
+
+Avoid placeholders or generic values like "TODO" or "VALUE".
+
+Ensure no floating or disconnected nodes or edges.
+
+Use no more than 5 consecutive action nodes without a logic or security node.
+
+Response format:
+Return ONLY valid JSON with this structure:
 {
-  "nodes": [
-    {
-      "id": "node_1",
-      "type": "custom",
-      "position": { "x": 100, "y": 200 },
-      "data": {
-        "nodeType": "asset_transfer_detected",
-        "label": "Detect Asset Transfer",
-        "category": "trigger",
-        "description": "Monitors for incoming asset transfers",
-        "properties": {
-          "asset_id": "DOT",
-          "min_amount": 100,
-          "from_address": ""
-        }
-      }
-    }
-  ],
-  "edges": [
-    {
-      "id": "edge_1_2",
-      "source": "node_1",
-      "target": "node_2",
-      "label": "detected",
-      "animated": true
-    }
-  ]
+"nodes": [
+{
+"id": "node_1",
+"type": "custom",
+"position": { "x": 100, "y": 200 },
+"data": {
+"nodeType": "governance_proposal",
+"label": "Revive Asset Proposal",
+"category": "trigger",
+"description": "Proposal to revive inactive asset",
+"properties": {
+"asset_id": "DOT-123",
+"proposer": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+}
+}
+}
+],
+"edges": [
+{
+"id": "edge_1_2",
+"source": "node_1",
+"target": "node_2",
+"label": "submitted",
+"animated": true
+}
+]
 }
 
-KEY REQUIREMENTS:
-- Start X position at 100, increment by 300 for each column
-- Y position: main flow at 200, branches at 100/300
-- Always include realistic property values
-- Use proper node types from the available list
-- Create logical workflow connections
-- Include proper edge labels (especially for logic nodes: "true"/"false")`;
+Your output must be plain JSON, no explanations or extra text.`;
 
 export const generateFlowchartFromPrompt = async (prompt) => {
   try {
@@ -287,40 +292,32 @@ export const SAMPLE_PROMPTS = [
 ];
 
 // Solidity contract generation
-const SOLIDITY_SYSTEM_PROMPT = `You are an expert Solidity smart contract developer. Generate complete, secure, and well-documented Solidity contracts.
+const SOLIDITY_SYSTEM_PROMPT = `You are an expert Solidity smart contract developer specializing in PolkaVM and AssetHub. Generate complete, secure, and well-documented Solidity contracts optimized for this environment.
 
 CRITICAL REQUIREMENTS:
 1. Always include SPDX license identifier
-2. Use pragma solidity ^0.8.25 or compatible version
+2. Use pragma solidity ^0.8.25;
 3. DO NOT use any external imports (no @openzeppelin, no external contracts)
-4. Implement all functionality directly within the contract
+4. Implement all functionality directly within the contract for self-containment
 5. DO NOT use markdown formatting - return ONLY raw Solidity code
-6. Follow best practices for security
-7. Include comprehensive comments
-8. Add proper error handling
+6. Follow best practices for security and include comprehensive comments
+7. Add proper error handling with descriptive revert messages
+
+POLKAVM & ASSETHUB OPTIMIZATIONS:
+- Target PolkaVM: Generate efficient code considering its RISC-V architecture. Avoid EVM-specific opcodes or patterns that are inefficient on PolkaVM.
+- AssetHub Integration: When the workflow involves assets (creation, transfer, freezing), assume interaction with AssetHub's native assets. Use placeholders for asset IDs where specific IDs are not provided in the flowchart (e.g., uint256 assetId).
+- Enhanced Limits: Leverage PolkaVM's larger contract size limit (up to 100KB) to create more complex and feature-rich contracts where appropriate, without sacrificing clarity.
+- Gas Efficiency: Write gas-conscious code. Use efficient data types and minimize state writes.
 
 SECURITY IMPLEMENTATION:
-- Implement reentrancy guards manually using bool _locked pattern
-- Implement access control using address owner and mapping(address => bool) authorized
+- Implement reentrancy guards manually using a '_locked' boolean pattern
+- Implement access control using an 'owner' address and appropriate modifiers (e.g., 'onlyOwner')
 - Validate all inputs properly
 - Use safe math operations (Solidity 0.8+ has built-in overflow protection)
-- Handle edge cases
-
-SELF-CONTAINED FEATURES:
-- For tokens: implement balances mapping directly
-- For access control: implement owner/authorized patterns manually
-- For reentrancy: implement _locked boolean guard manually
-- For pausable: implement paused state manually
+- Handle edge cases thoroughly
 
 RESPONSE FORMAT:
-Return ONLY the Solidity contract code without any markdown formatting, explanations, or code blocks. Start directly with "// SPDX-License-Identifier".
-
-CONTRACT STRUCTURE EXAMPLE:
-- Clear variable declarations
-- Built-in modifiers (onlyOwner, nonReentrant)
-- Well-organized functions
-- Event definitions
-- Self-contained implementation`;
+Return ONLY the Solidity contract code. Start directly with "// SPDX-License-Identifier".`;
 
 // Add a function to clean AI-generated Solidity code
 const cleanAIGeneratedCode = (code) => {
@@ -516,4 +513,87 @@ export const SOLIDITY_SAMPLE_PROMPTS = [
   "Decentralized escrow service",
   "Time-locked treasury contract",
   "Staking contract with rewards distribution"
-]; 
+];
+
+export const generateSolidityFromFlowchartAI = async (nodes, edges, contractName) => {
+  try {
+    console.log('🤖 [AIService] Starting Solidity generation from flowchart');
+
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key not configured.');
+    }
+
+    // Simplify nodes and edges for the prompt
+    const simplifiedNodes = nodes.map(n => ({
+      id: n.id,
+      type: n.data.nodeType,
+      label: n.data.label,
+      properties: n.data.properties,
+    }));
+
+    const simplifiedEdges = edges.map(e => ({
+      source: e.source,
+      target: e.target,
+      label: e.label || 'next',
+    }));
+
+    const flowchartJSON = JSON.stringify({ nodes: simplifiedNodes, edges: simplifiedEdges }, null, 2);
+
+    const userPrompt = `Generate a complete, secure, and well-documented Solidity smart contract named ${contractName} based on the following flowchart structure.
+The flowchart defines the logic the contract should execute.
+
+Flowchart (JSON):
+${flowchartJSON}
+
+Follow all the critical requirements from the system prompt. The contract should be self-contained and ready to deploy.`;
+
+    console.log('🤖 [AIService] Making request to OpenAI API for Solidity generation...');
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4',
+        messages: [
+          {
+            role: 'system',
+            content: SOLIDITY_SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: userPrompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 3000
+      })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'OpenAI API request failed');
+    }
+
+    const data = await response.json();
+    let contractCode = data.choices[0].message.content.trim();
+    contractCode = cleanAIGeneratedCode(contractCode);
+
+    console.log('✅ [AIService] Successfully generated Solidity from flowchart.');
+
+    return {
+      success: true,
+      contractCode: contractCode
+    };
+
+  } catch (error) {
+    console.error('❌ [AIService] AI Solidity generation from flowchart failed:', error);
+    return {
+        success: false,
+        error: error.message,
+        contractCode: `// Error generating contract: ${error.message}`
+    };
+  }
+}; 
