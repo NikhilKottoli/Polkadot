@@ -88,6 +88,29 @@ const AssetHubDashboard = () => {
       console.log("Finished connectWallet");
     }
   };
+  const handleFreeze = async () => {
+    if (!contract || !freezeAssetId || !freezeAccount) return;
+    
+    try {
+      setLoading(true);
+      const tx = await contract.freeze(
+        Number(freezeAssetId),
+        freezeAccount,
+        freezeStatus
+      );
+      await tx.wait();
+      setContractTestResult(`✅ ${freezeStatus ? 'Froze' : 'Unfroze'} account ${truncateAddress(freezeAccount)} for Asset #${freezeAssetId}`);
+      // Clear inputs after successful operation
+      setFreezeAssetId("");
+      setFreezeAccount("");
+      setFreezeStatus(false);
+    } catch (error) {
+      console.error("Freeze error:", error);
+      setContractTestResult(`❌ Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const testContractConnection = async () => {
     if (!contract) {
@@ -298,6 +321,45 @@ const AssetHubDashboard = () => {
         </button>
       </div>
 
+      <div className="asset-hub-section">
+        <h2>Freeze/Unfreeze Account</h2>
+        <select
+          className="asset-hub-input"
+          value={freezeAssetId}
+          onChange={e => setFreezeAssetId(e.target.value)}
+          disabled={loading || existingAssets.length === 0}
+        >
+          <option value="">Select Asset ID</option>
+          {existingAssets.map(id => (
+            <option key={id} value={id}>Asset #{id}</option>
+          ))}
+        </select>
+        <input
+          className="asset-hub-input"
+          placeholder="Account Address"
+          value={freezeAccount}
+          onChange={e => setFreezeAccount(e.target.value)}
+          disabled={loading}
+        />
+        <div className="flex flex-col">
+        <label className="asset-hub-checkbox">
+          <input
+            type="checkbox"
+            checked={freezeStatus}
+            onChange={e => setFreezeStatus(e.target.checked)}
+            disabled={loading}
+          />
+          Freeze Account
+        </label>
+        <button
+          className="asset-hub-btn"
+          onClick={handleFreeze}
+          disabled={!freezeAssetId || !freezeAccount || loading}
+        >
+          {loading ? "Updating..." : "Set Freeze Status"}
+        </button>
+        </div>
+      </div>
       <div className="asset-hub-section">
         <h2>Asset Information</h2>
         <select 
