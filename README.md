@@ -139,6 +139,15 @@ Use the dashboard to create, build, and deploy your first workflow.
 - **Zero external dependencies** for generated contracts
 - **Designed for both developers and non-developers** to rapidly prototype and deploy blockchain applications
 
+## Deployment
+```
+Deployed By: 0x8a84e3d8fa00075ffa69010949da38f63b7f5fb8
+
+Contract Address: 0x4E2cDE8Cc8DD1A21DB769548dDE62EC273bb45ac
+
+Transaction Hash: 0xd153843abf1fe67976c697962cfd1b518d63d5a7782cecabcf3224f3c2add84a
+```
+
 ##App Screens -
 
 ![image](https://github.com/user-attachments/assets/f26ecdaf-ed50-4985-bcd4-4905a3e47649)
