@@ -57,6 +57,19 @@ Download and install `resolc`, `solc` from the official PolkaVM resources or rel
 
 **Important**: Make sure both `solc` and `resolc` are available in your system's PATH so Polkaflow can invoke them for contract compilation.
 
+# Assethub Deployments
+
+AssetStorage
+```
+Contract Address : 0xab6393232CbB3D3B38f6f1D33728f1de275E098b
+Transaction Hash : 0xa245dc3b00368b3e71f14dddb5166b8541542a8c475a0b3356d4eb00b3a754c8
+```
+AssetHubManager
+```
+Contract Address : 0xA99f2E62578B6adAaEaE585751D99d84111211Dd
+Transaction Hash : 0xd97d77a9ff9b656af5085c4709a1a1129771e0c8473b9f545b7d85ccc5f8770e
+```
+
 ## 🛠️ Technical Architecture
 
 ### Frontend:
@@ -147,7 +160,6 @@ Contract Address: 0x4E2cDE8Cc8DD1A21DB769548dDE62EC273bb45ac
 
 Transaction Hash: 0xd153843abf1fe67976c697962cfd1b518d63d5a7782cecabcf3224f3c2add84a
 ```
-
 
 
 ![image](https://github.com/user-attachments/assets/f26ecdaf-ed50-4985-bcd4-4905a3e47649)
