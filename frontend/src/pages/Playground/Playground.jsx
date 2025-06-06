@@ -10,7 +10,7 @@ export default function Playground() {
     <div className="flex flex-1 flex-col  w-full h-screen p-2 bg-[#171717] ">
       <Sheet>
         <TopBar />
-        <div className=" w-full h-full rounded-2xl border-[#2b2b2b] border bg-[#0e0e0e] relative overflow-hidden ]">
+        <div className=" w-full h-full rounded-2xl border-[#2b2b2b] border bg-[#0e0e0e] relative overflow-hidden ">
           <FlowBoard />
         </div>
       </Sheet>

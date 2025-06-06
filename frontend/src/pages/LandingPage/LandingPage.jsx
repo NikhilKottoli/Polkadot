@@ -5,7 +5,11 @@ import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { TextEffect } from "@/components/motion-primitives/text-effect";
 import { AnimatedGroup } from "@/components/motion-primitives/animated-group";
+import FeaturesSection from "./components/FeaturesSection";
 import IntegrationsSection from "./components/IntegrationsSection";
+import TeamSection from "./components/TeamSection";
+import FooterSection from "./components/FooterSection";
+import LoadingAnimation from "../../components/LoadingAnimation";
 
 const transitionVariants = {
   item: {
@@ -185,6 +189,10 @@ export default function HeroSection() {
           </div>
         </section>
         <IntegrationsSection />
+        <FeaturesSection />
+        <TeamSection />
+        <FooterSection />
+        {/* <LoadingAnimation /> */}
       </main>
     </>
   );
