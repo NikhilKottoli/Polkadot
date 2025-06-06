@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { solidityCompiler, getCompilerVersions } from "@agnostico/browser-solidity-compiler"; 
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import {
@@ -23,6 +24,7 @@ import useBoardStore from "../../../../store/store";
 import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerator";
 import { compileContract, deployContract } from "../../../../utils/contractService";
 import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
+import { estimateContractGas } from "./gasEstimation";
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -34,12 +36,16 @@ export default function TopBar() {
   const [showGenerationChoice, setShowGenerationChoice] = useState(false);
   const [walletAddress, setWalletAddress] = useState(null);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
-  
   const [contractName, setContractName] = useState("");
   const [compilationResult, setCompilationResult] = useState({ abi: null, bytecode: null });
   const [deploymentResult, setDeploymentResult] = useState({ address: null, txHash: null });
   const [operationState, setOperationState] = useState({ loading: false, error: null, message: null });
-
+  const [gasEstimation, setGasEstimation] = useState({
+    deploymentGas: null,
+    functionGasEstimates: {},
+    totalEstimatedCost: null,
+    error: null
+  });
   const [editForm, setEditForm] = useState({ name: "", description: "" });
 
   const {
@@ -100,7 +106,8 @@ export default function TopBar() {
     setShowWalletDetails(false);
   };
 
-  const handleGenerate = async (type) => {
+
+const handleGenerate = async (type) => {
     setShowGenerationChoice(false);
     if (!currentProject) return;
 
@@ -121,6 +128,7 @@ export default function TopBar() {
         setIsGeneratingSolidity(false);
         return;
       }
+      
       let solidityCode = "";
       if (type === "our-algorithm") {
         solidityCode = generateSolidityFromFlowchart(nodes, edges, name);
@@ -133,14 +141,29 @@ export default function TopBar() {
         }
       }
       setGeneratedSolidity(solidityCode);
+      
+      // Perform gas estimation
+      console.log("⛽ [TopBar] Starting gas estimation");
+      try {
+        const gasEstimation = await estimateContractGas(solidityCode, name);
+        setGasEstimation(gasEstimation);
+        console.log("⛽ [TopBar] Gas estimation completed:", gasEstimation);
+      } catch (gasError) {
+        console.error("Gas estimation failed:", gasError);
+        setGasEstimation({
+          deploymentGas: null,
+          functionGasEstimates: {},
+          error: gasError.message || "Gas estimation failed"
+        });
+      }
+      
       setShowSolidityModal(true);
-    } catch (error)
-    {
+    } catch (error) {
       console.error("Solidity generation failed:", error);
     } finally {
       setIsGeneratingSolidity(false);
     }
-  };
+};
 
   const handleCompile = async () => {
     setOperationState({ loading: true, error: null, message: "Compiling..." });
@@ -155,6 +178,7 @@ export default function TopBar() {
       setOperationState({ loading: false, error: result.error, message: null });
     }
   };
+
 
   const handleDeployContract = async () => {
     if (!compilationResult.bytecode || !walletAddress) {
@@ -341,13 +365,13 @@ export default function TopBar() {
 
       {showSolidityModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-6xl max-h-[90vh] w-full flex flex-col text-white">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-6xl max-h-[90vh] w-full flex flex-col text-white min-h-[70vh]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Generated Solidity Contract: <span className="font-mono text-purple-400">{contractName}.sol</span></h3>
               <Button variant="ghost" size="sm" onClick={() => setShowSolidityModal(false)}><X/></Button>
             </div>
             
-            <div className="grid grid-cols-2 gap-6 flex-1 overflow-auto">
+            <div className="grid grid-cols-2 gap-6 flex-1 overflow-auto min-w-[70vh]">
               {/* Code Editor Column */}
               <div className="flex flex-col h-full">
                 <label className="text-sm text-gray-400 mb-2">Solidity Code</label>
@@ -355,15 +379,37 @@ export default function TopBar() {
                   <textarea
                     value={generatedSolidity}
                     onChange={(e) => setGeneratedSolidity(e.target.value)}
-                    className="p-4 w-full h-full bg-transparent resize-none focus:outline-none text-white font-mono"
+                    className="p-4 w-full h-full bg-transparent resize-none focus:outline-none text-white font-mono min-h-[70vh]"
                     spellCheck="false"
                   />
                 </div>
               </div>
 
+        {/* Function Gas Estimates */}
+              {gasEstimation?.functionGasEstimates && Object.keys(gasEstimation.functionGasEstimates).length > 0 && (
+                <div className="mb-4 p-3 bg-purple-700/20 border border-purple-500 rounded-md font-mono text-sm max-h-[50vh] overflow-y-auto">
+                  <div className="text-sm mb-2 text-purple-300">🔧 Function Gas Estimates:</div>
+                  <div className="space-y-1">
+                    {Object.entries(gasEstimation.functionGasEstimates).map(([funcName, gasData]) => (
+                      <div key={funcName} className="flex justify-between items-center text-xs">
+                        <span className="text-gray-300">{funcName}():</span>
+                        <span className="text-white font-bold">
+                          {gasData.estimated > 100000 ? (
+                            <span className="text-red-400">{gasData.estimated} ⚠️ recommend using rust as gas is high </span>
+                          ) : (
+                            <span className="text-green-400">{gasData.estimated} gas</span>
+                          )} 
+                        </span>
+                        
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Compilation & Deployment Column */}
               <div className="flex flex-col h-full overflow-y-auto">
-                 {/* Compilation Output */}
+                {/* Compilation Output */}
                 {compilationResult.abi && (
                   <div className="mb-4">
                     <h4 className="text-md font-semibold mb-2 text-green-400">Compilation Output</h4>
@@ -388,26 +434,24 @@ export default function TopBar() {
                   </div>
                 )}
                 
-                {/* Deployment Output */}
                 {deploymentResult.address && (
-                   <div className="mb-4">
+                  <div className="mb-4">
                     <h4 className="text-md font-semibold mb-2 text-blue-400">Deployment Details</h4>
                     <div className="space-y-2 text-sm bg-gray-900 p-4 rounded-md">
-                       <p><strong className="text-gray-400">Deployed By:</strong> <span className="font-mono text-xs">{walletAddress}</span></p>
-                       <p><strong className="text-gray-400">Contract Address:</strong> <span className="font-mono text-xs">{deploymentResult.address}</span></p>
-                       <p><strong className="text-gray-400">Transaction Hash:</strong> <span className="font-mono text-xs">{deploymentResult.txHash}</span></p>
-                       <p>
-                          <strong className="text-gray-400">Testnet Explorer:</strong> 
-                          <a href={`https://blockscout-passet-hub.parity-testnet.parity.io/tx/${deploymentResult.txHash}`} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline ml-2">
-                            View on Blockscout
-                          </a>
-                       </p>
+                      <p><strong className="text-gray-400">Deployed By:</strong> <span className="font-mono text-xs">{walletAddress}</span></p>
+                      <p><strong className="text-gray-400">Contract Address:</strong> <span className="font-mono text-xs">{deploymentResult.address}</span></p>
+                      <p><strong className="text-gray-400">Transaction Hash:</strong> <span className="font-mono text-xs">{deploymentResult.txHash}</span></p>
+                      <p>
+                        <strong className="text-gray-400">Testnet Explorer:</strong> 
+                        <a href={`https://blockscout-passet-hub.parity-testnet.parity.io/tx/${deploymentResult.txHash}`} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline ml-2">
+                          View on Blockscout
+                        </a>
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-
 
             <div className="flex items-center justify-between mt-auto border-t border-gray-700 pt-4">
               <div className="flex gap-2">
@@ -432,6 +476,7 @@ export default function TopBar() {
           </div>
         </div>
       )}
+
     </>
   );
 }
