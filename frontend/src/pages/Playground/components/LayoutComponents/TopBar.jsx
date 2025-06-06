@@ -103,6 +103,8 @@ export default function TopBar() {
   const handleGenerate = async (type) => {
     setShowGenerationChoice(false);
     if (!currentProject) return;
+
+    console.log("🔨 [TopBar] Starting Solidity generation");
     setIsGeneratingSolidity(true);
     // Reset states
     setCompilationResult({ abi: null, bytecode: null });
@@ -190,6 +192,7 @@ export default function TopBar() {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    console.log("💾 [TopBar] Solidity code downloaded");
   };
 
   const handleStartEdit = () => {
@@ -267,6 +270,7 @@ export default function TopBar() {
           </Button>
           <img src="/logo.svg" alt="Logo" className="h-5"/>
           <p className="font-bold">Polkaflow</p>
+          <div className="w-84" />
         </div>
         
         <div className="flex-1 flex justify-center items-center">

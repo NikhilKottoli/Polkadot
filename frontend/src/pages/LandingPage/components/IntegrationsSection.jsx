@@ -1,34 +1,25 @@
-import {
-  Zap,
-  Wallet,
-  Code2,
-  Coins,
-  Database,
-  Network,
-  LogsIcon,
-} from "lucide-react";
-
+import { LogsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { InfiniteSlider } from "@/components/motion-primitives/infinite-slider";
 
-// Integration config
+// Integration config using image sources
 const integrations = [
-  { icon: Zap, label: "Zapier", color: "text-yellow-500" },
-  { icon: Wallet, label: "Metamask", color: "text-orange-500" },
-  { icon: Code2, label: "Chainlink", color: "text-blue-500" },
-  { icon: Coins, label: "Uniswap", color: "text-pink-500" },
-  { icon: Database, label: "The Graph", color: "text-purple-500" },
-  { icon: Network, label: "IPFS", color: "text-green-500" },
+  { img: "/cryptoLogos/1.svg", label: "Zapier", color: "text-yellow-500" },
+  { img: "/cryptoLogos/2.svg", label: "Metamask", color: "text-orange-500" },
+  { img: "/cryptoLogos/3.svg", label: "Chainlink", color: "text-blue-500" },
+  { img: "/cryptoLogos/4.svg", label: "Uniswap", color: "text-pink-500" },
+  { img: "/cryptoLogos/5.svg", label: "The Graph", color: "text-purple-500" },
+  { img: "/cryptoLogos/6.svg", label: "IPFS", color: "text-green-500" },
 ];
 
 export default function IntegrationsSection() {
   return (
     <section className="mt-[-250px] z-[400]">
-      <div className=" pb-24 md:pb-32  ">
+      <div className="pb-24 md:pb-32">
         <div className="mx-auto max-w-5xl px-6">
-          <div className="bg-muted/25 group relative mx-auto max-w-[22rem] items-center justify-between space-y-6 [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] sm:max-w-md scale-200 relative top-[-98px]">
+          <div className="bg-muted/25 group  mx-auto max-w-[22rem] items-center justify-between space-y-6 [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)] sm:max-w-md scale-200 relative top-[-98px]">
             <div
               role="presentation"
               className="absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--color-border)_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:32px_32px] opacity-50"
@@ -42,9 +33,13 @@ export default function IntegrationsSection() {
                   speedOnHover={10}
                   reverse={reverse}
                 >
-                  {integrations.map(({ icon: Icon, label, color }, i) => (
+                  {integrations.map(({ img, label, color }, i) => (
                     <IntegrationCard key={i} className={color}>
-                      <Icon />
+                      <img
+                        src={img}
+                        alt={label}
+                        className="w-5 h-5 object-contain"
+                      />
                     </IntegrationCard>
                   ))}
                 </InfiniteSlider>
@@ -53,15 +48,15 @@ export default function IntegrationsSection() {
 
             <div className="absolute inset-0 m-auto flex size-fit justify-center gap-2">
               <IntegrationCard
-                className="shadow-black-950/10 size-16 bg-white/25 shadow-xl backdrop-blur-md backdrop-grayscale dark:border-white/10 dark:shadow-white/15"
+                className="shadow-black-950/10 size-16 bg-black/75 shadow-xl backdrop-blur-md backdrop-grayscale dark:border-white/10 dark:shadow-white/15"
                 isCenter={true}
               >
-                <LogsIcon />
+                <img className="w-8 h-8" src="/logo.svg" />
               </IntegrationCard>
             </div>
           </div>
 
-          <div className="mx-auto mt-12 max-w-lg space-y-6 text-center ">
+          <div className="mx-auto mt-12 max-w-lg space-y-6 text-center">
             <h2 className="text-balance text-3xl font-semibold md:text-4xl z-[40]">
               Connect your Web3 tools effortlessly
             </h2>
@@ -88,7 +83,7 @@ const IntegrationCard = ({ children, className, isCenter = false }) => {
         className
       )}
     >
-      <div className={cn("m-auto size-fit *:size-5", isCenter && "*:size-8")}>
+      <div className={cn("m-auto", isCenter ? "w-8 h-8" : "w-5 h-5")}>
         {children}
       </div>
     </div>
