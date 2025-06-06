@@ -1,23 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import html2canvas from "html2canvas";
 import {
-  CircleUser,
-  Edit,
   ArrowLeft,
-  Save,
-  Play,
   Check,
-  X,
   Code,
-  Download,
   Copy,
+  Download,
+  Edit,
+  FileText,
+  Loader2,
+  Play,
+  Rocket,
+  Save,
+  Sparkle,
+  Wallet,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import useBoardStore from "../../../../store/store";
 import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerator";
+import { compileContract, deployContract } from "../../../../utils/contractService";
+import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -26,10 +31,16 @@ export default function TopBar() {
   const [isGeneratingSolidity, setIsGeneratingSolidity] = useState(false);
   const [generatedSolidity, setGeneratedSolidity] = useState("");
   const [showSolidityModal, setShowSolidityModal] = useState(false);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    description: "",
-  });
+  const [showGenerationChoice, setShowGenerationChoice] = useState(false);
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [showWalletDetails, setShowWalletDetails] = useState(false);
+  
+  const [contractName, setContractName] = useState("");
+  const [compilationResult, setCompilationResult] = useState({ abi: null, bytecode: null });
+  const [deploymentResult, setDeploymentResult] = useState({ address: null, txHash: null });
+  const [operationState, setOperationState] = useState({ loading: false, error: null, message: null });
+
+  const [editForm, setEditForm] = useState({ name: "", description: "" });
 
   const {
     getCurrentProject,
@@ -41,46 +52,138 @@ export default function TopBar() {
 
   const currentProject = getCurrentProject();
 
-  // Generate Solidity code from flowchart
-  const handleGenerateSolidity = async () => {
+  useEffect(() => {
+    const initWallet = async () => {
+      if (window.ethereum) {
+        try {
+          // Check for existing accounts
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            setWalletAddress(accounts[0]);
+          }
+          
+          // Listen for account changes
+          window.ethereum.on('accountsChanged', (newAccounts) => {
+            setWalletAddress(newAccounts.length > 0 ? newAccounts[0] : null);
+          });
+
+        } catch (error) {
+          console.error("Error initializing wallet:", error);
+        }
+      }
+    };
+    initWallet();
+
+    return () => {
+      if (window.ethereum?.removeListener) {
+        window.ethereum.removeListener('accountsChanged', () => {});
+      }
+    };
+  }, []);
+
+  const handleConnectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        setWalletAddress(accounts[0]);
+      } catch (error) {
+        console.error("Wallet connection failed:", error);
+        alert("Failed to connect wallet.");
+      }
+    } else {
+      alert("MetaMask not found. Please install the extension.");
+    }
+  };
+
+  const handleDisconnectWallet = () => {
+    setWalletAddress(null);
+    setShowWalletDetails(false);
+  };
+
+  const handleGenerate = async (type) => {
+    setShowGenerationChoice(false);
     if (!currentProject) return;
 
     console.log("🔨 [TopBar] Starting Solidity generation");
     setIsGeneratingSolidity(true);
+    // Reset states
+    setCompilationResult({ abi: null, bytecode: null });
+    setDeploymentResult({ address: null, txHash: null });
+    setOperationState({ loading: false, error: null, message: null });
+    const name = currentProject.name.replace(/\s+/g, '') || "MyContract";
+    setContractName(name);
 
     try {
       const nodes = getNodes();
       const edges = getEdges();
-
       if (nodes.length === 0) {
-        alert("No nodes in the flowchart to generate from!");
+        alert("Cannot generate code from an empty flowchart.");
+        setIsGeneratingSolidity(false);
         return;
       }
-
-      const solidityCode = generateSolidityFromFlowchart(
-        nodes,
-        edges,
-        currentProject.name
-      );
+      let solidityCode = "";
+      if (type === "our-algorithm") {
+        solidityCode = generateSolidityFromFlowchart(nodes, edges, name);
+      } else {
+        const result = await generateSolidityFromFlowchartAI(nodes, edges, name);
+        if (result.success) {
+          solidityCode = result.contractCode;
+        } else {
+          solidityCode = `// AI generation failed: ${result.error}`;
+        }
+      }
       setGeneratedSolidity(solidityCode);
       setShowSolidityModal(true);
-
-      console.log("✅ [TopBar] Solidity generation completed");
-    } catch (error) {
-      console.error("❌ [TopBar] Solidity generation failed:", error);
-      alert("Failed to generate Solidity code. Please try again.");
+    } catch (error)
+    {
+      console.error("Solidity generation failed:", error);
     } finally {
       setIsGeneratingSolidity(false);
     }
   };
 
-  // Copy Solidity code to clipboard
-  const copySolidityToClipboard = () => {
-    navigator.clipboard.writeText(generatedSolidity);
-    console.log("📋 [TopBar] Solidity code copied to clipboard");
+  const handleCompile = async () => {
+    setOperationState({ loading: true, error: null, message: "Compiling..." });
+    setCompilationResult({ abi: null, bytecode: null });
+    setDeploymentResult({ address: null, txHash: null });
+
+    const result = await compileContract(generatedSolidity, contractName);
+    if (result.success) {
+      setCompilationResult({ abi: result.abi, bytecode: result.bytecode });
+      setOperationState({ loading: false, error: null, message: "Compilation successful!" });
+    } else {
+      setOperationState({ loading: false, error: result.error, message: null });
+    }
   };
 
-  // Download Solidity code as file
+  const handleDeployContract = async () => {
+    if (!compilationResult.bytecode || !walletAddress) {
+      alert("Contract not compiled or wallet not connected.");
+      return;
+    }
+    setOperationState({ loading: true, error: null, message: "Deploying..." });
+    const result = await deployContract(compilationResult.abi, compilationResult.bytecode, walletAddress);
+    if (result.success) {
+      setDeploymentResult({ address: result.contractAddress, txHash: result.transactionHash });
+      setOperationState({ loading: false, error: null, message: `Deployment successful!` });
+      updateProject(currentProject.id, { ...currentProject, status: "deployed", deployedAt: new Date().toISOString() });
+    } else {
+      setOperationState({ loading: false, error: result.error, message: null });
+    }
+  };
+
+  const handleGenerateClick = () => {
+    if (!currentProject) return;
+    const nodes = getNodes();
+    if (nodes.length === 0) {
+      alert("No nodes in the flowchart to generate from!");
+      return;
+    }
+    setShowGenerationChoice(true);
+  };
+
+  const copySolidityToClipboard = () => navigator.clipboard.writeText(generatedSolidity);
+
   const downloadSolidityCode = () => {
     const element = document.createElement("a");
     const file = new Blob([generatedSolidity], { type: "text/plain" });
@@ -92,327 +195,239 @@ export default function TopBar() {
     console.log("💾 [TopBar] Solidity code downloaded");
   };
 
-  // Initialize edit form when editing starts
   const handleStartEdit = () => {
     if (currentProject) {
-      setEditForm({
-        name: currentProject.name,
-        description: currentProject.description || "",
-      });
+      setEditForm({ name: currentProject.name, description: currentProject.description || "" });
       setIsEditing(true);
     }
   };
 
-  // Save project details
   const handleSaveEdit = () => {
     if (currentProject && editForm.name.trim()) {
-      updateProject(currentProject.id, {
-        name: editForm.name.trim(),
-        description: editForm.description.trim(),
-      });
+      updateProject(currentProject.id, { ...currentProject, ...editForm });
       setIsEditing(false);
     }
   };
 
-  // Cancel editing
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditForm({ name: "", description: "" });
-  };
-
-  // Save project workflow
+  const handleCancelEdit = () => setIsEditing(false);
+  
   const handleSave = () => {
     if (currentProject) {
       updateProject(currentProject.id, {
+        ...currentProject,
         nodes: getNodes(),
         edges: getEdges(),
         updatedAt: new Date().toISOString(),
       });
-
       console.log("Project saved successfully!");
     }
   };
-
-  // Deploy project
-  const handleDeploy = () => {
-    if (currentProject) {
-      updateProject(currentProject.id, {
-        nodes: getNodes(),
-        edges: getEdges(),
-        status: "deployed",
-        deployedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-      console.log("Project deployed successfully!");
-    }
-  };
-
-  // Enhanced screenshot function with html2canvas
+  
   const takeScreenshotAndExit = async () => {
     if (!currentProject) {
       navigate("/dashboard");
       return;
     }
-
     setIsCapturingScreenshot(true);
-
     try {
-      // Find the React Flow container with better selectors
-      const flowContainer =
-        document.querySelector(".react-flow") ||
-        document.querySelector('[data-testid="rf__wrapper"]') ||
-        document.querySelector(".react-flow__renderer") ||
-        document.querySelector(".react-flow__container") ||
-        document.body;
-
-      if (flowContainer) {
-        // Save current project state first
-        updateProject(currentProject.id, {
-          nodes: getNodes(),
-          edges: getEdges(),
-          updatedAt: new Date().toISOString(),
-        });
-
-        // Configure html2canvas options for better quality
-        const canvas = await html2canvas(flowContainer, {
-          backgroundColor: "#ffffff",
-          scale: 1,
-          useCORS: true,
-          allowTaint: true,
-          width: flowContainer.scrollWidth || flowContainer.offsetWidth,
-          height: flowContainer.scrollHeight || flowContainer.offsetHeight,
-          scrollX: 0,
-          scrollY: 0,
-          ignoreElements: (element) => {
-            // Ignore certain UI elements that shouldn't be in screenshot
-            return (
-              element.classList.contains("react-flow__controls") ||
-              element.classList.contains("react-flow__minimap") ||
-              element.tagName === "BUTTON"
-            );
-          },
-        });
-
-        // Convert canvas to base64 image
-        const imageData = canvas.toDataURL("image/png", 0.8);
-
-        // Save thumbnail using your store method
-        await saveProjectThumbnail(currentProject.id, imageData);
-
-        console.log("Screenshot saved and cached successfully!");
-      }
+      const flowContainer = document.querySelector(".react-flow") || document.body;
+      const canvas = await html2canvas(flowContainer, { scale: 1 });
+      const imageData = canvas.toDataURL("image/png", 0.8);
+      await saveProjectThumbnail(currentProject.id, imageData);
     } catch (error) {
       console.error("Failed to take screenshot:", error);
     } finally {
       setIsCapturingScreenshot(false);
-      // Always navigate back, even if screenshot fails
       navigate("/dashboard");
     }
   };
 
-  // Handle keyboard shortcuts
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && e.ctrlKey) {
-      handleSaveEdit();
-    } else if (e.key === "Escape") {
-      handleCancelEdit();
-    }
+    if (e.key === "Enter" && e.ctrlKey) handleSaveEdit();
+    else if (e.key === "Escape") handleCancelEdit();
   };
-
+  
   if (!currentProject) {
     return (
       <div className="h-[20px] mb-4 px-4 mt-2 flex justify-between w-full">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/dashboard")}
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+           <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </Button>
-          <img className="" src="/logo.svg" alt="Logo" />
+          <img src="/logo.svg" alt="Logo" className="h-5"/>
           <p className="font-bold">Polkaflow</p>
         </div>
-        <div className="text-muted-foreground">No project selected</div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="h-[20px] mb-4 px-4 mt-2 flex justify-between w-full">
-        {/* Left Section - Logo and Back Button */}
+      <div className="h-[20px] mb-4 px-4 mt-2 flex justify-between w-full items-center">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="ml-[-10px] mr-[8px]"
-            size="sm"
-            onClick={takeScreenshotAndExit}
-            disabled={isCapturingScreenshot}
-          >
+          <Button variant="outline" size="sm" onClick={takeScreenshotAndExit} disabled={isCapturingScreenshot}>
             <ArrowLeft className="w-4 h-4" />
-            {isCapturingScreenshot && (
-              <span className="ml-1 text-xs">Capturing...</span>
-            )}
           </Button>
-          <img className="" src="/logo.svg" alt="Logo" />
+          <img src="/logo.svg" alt="Logo" className="h-5"/>
           <p className="font-bold">Polkaflow</p>
           <div className="w-84" />
         </div>
-
-        {/* Center Section - Project Info */}
-        <div className="flex gap-2 items-center h-full">
+        
+        <div className="flex-1 flex justify-center items-center">
           {isEditing ? (
-            <div className="flex gap-2 min-w-[300px] items-center">
-              <div className="flex items-center gap-2 justify-center text-center">
-                <Input
-                  value={editForm.name}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, name: e.target.value })
-                  }
-                  placeholder="Project name"
-                  className="h-8 text-sm font-semibold"
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                />
-              </div>
-              <Input
-                value={editForm.description}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, description: e.target.value })
-                }
-                placeholder="Project description"
-                className="h-6 text-xs"
-                onKeyDown={handleKeyDown}
-              />
-              <div className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0"
-                  onClick={handleSaveEdit}
-                  disabled={!editForm.name.trim()}
-                >
-                  <Check className="h-3 w-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0"
-                  onClick={handleCancelEdit}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
+            <div className="flex gap-2 items-center">
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} onKeyDown={handleKeyDown} className="h-8"/>
+              <Button onClick={handleSaveEdit} size="sm"><Check className="h-4 w-4"/></Button>
+              <Button onClick={handleCancelEdit} size="sm" variant="ghost"><X className="h-4 w-4"/></Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 group text-center">
-              <div>
-                <h1 className="font-semibold">{currentProject.name}</h1>
-                <p className="text-sm text-muted-foreground">
-                  {currentProject.description || "No description"}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={handleStartEdit}
-              >
-                <Edit size={12} />
+            <div className="flex items-center gap-2 group">
+              <h1 className="font-semibold text-lg">{currentProject.name}</h1>
+              <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100" onClick={handleStartEdit}>
+                <Edit size={16} />
               </Button>
             </div>
           )}
         </div>
 
-        {/* Right Section - Action Buttons */}
         <div className="flex gap-2 items-center">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mr-2">
-            <div
-              className={`w-2 h-2 rounded-full ${
-                currentProject.status === "deployed"
-                  ? "bg-green-500"
-                  : currentProject.status === "draft"
-                  ? "bg-yellow-500"
-                  : "bg-gray-500"
-              }`}
-            />
-            <span className="capitalize">{currentProject.status}</span>
+          <Button onClick={handleSave} size="sm"><Save className="mr-2 h-4 w-4" />Save</Button>
+          
+          <div className="relative">
+            {!walletAddress ? (
+              <Button onClick={handleConnectWallet} size="sm">Connect Wallet</Button>
+            ) : (
+              <>
+                <Button onClick={() => setShowWalletDetails(!showWalletDetails)} size="icon" variant="outline">
+                  <Wallet className="h-5 w-5 text-green-500"/>
+                </Button>
+                {showWalletDetails && (
+                  <div className="absolute top-12 right-0 bg-gray-800 border border-gray-700 rounded-lg p-4 w-72 z-50 text-white shadow-lg">
+                    <p className="text-sm text-gray-400 mb-1">Connected Wallet</p>
+                    <p className="font-mono text-xs break-words mb-4">{walletAddress}</p>
+                    <Button variant="destructive" size="sm" className="w-full" onClick={handleDisconnectWallet}>
+                        Disconnect
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSave}
-            className="relative"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={handleDeploy}
-            disabled={currentProject.status === "deployed"}
-          >
-            <Play className="w-4 h-4 mr-2" />
-            {currentProject.status === "deployed" ? "Deployed" : "Deploy"}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleGenerateSolidity}
-            disabled={isGeneratingSolidity}
-          >
-            <Code className="w-4 h-4 mr-2" />
-            {isGeneratingSolidity ? "Generating..." : "Generate Solidity"}
+          <Button onClick={handleGenerateClick} disabled={isGeneratingSolidity} size="sm" className="bg-green-600 hover:bg-green-700">
+            {isGeneratingSolidity ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Code className="mr-2 h-4 w-4" />}
+            Generate
           </Button>
         </div>
       </div>
 
-      {/* Solidity Code Modal */}
+      {showGenerationChoice && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-gray-800 border-gray-700 rounded-2xl p-8 text-center text-white">
+            <h2 className="text-2xl font-bold mb-4">Choose Generation Method</h2>
+            <p className="text-gray-400 mb-8">Select how to generate Solidity from your flowchart.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => handleGenerate('ai')} className="p-6 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg">
+                <Sparkle className="w-10 h-10 mx-auto mb-3 text-purple-400" /> AI Generator
+              </button>
+              <button onClick={() => handleGenerate('our-algorithm')} className="p-6 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg">
+                <FileText className="w-10 h-10 mx-auto mb-3 text-blue-400" /> Flowchart Logic
+              </button>
+            </div>
+            <Button onClick={() => setShowGenerationChoice(false)} variant="ghost" className="mt-8">Cancel</Button>
+          </div>
+        </div>
+      )}
+
       {showSolidityModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl max-h-[80vh] w-full mx-4 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-6xl max-h-[90vh] w-full flex flex-col text-white">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">
-                Generated Solidity Contract
-              </h3>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copySolidityToClipboard}
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={downloadSolidityCode}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSolidityModal(false)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+              <h3 className="text-lg font-semibold">Generated Solidity Contract: <span className="font-mono text-purple-400">{contractName}.sol</span></h3>
+              <Button variant="ghost" size="sm" onClick={() => setShowSolidityModal(false)}><X/></Button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-6 flex-1 overflow-auto">
+              {/* Code Editor Column */}
+              <div className="flex flex-col h-full">
+                <label className="text-sm text-gray-400 mb-2">Solidity Code</label>
+                <div className="flex-1 bg-gray-900 rounded-md font-mono text-sm">
+                  <textarea
+                    value={generatedSolidity}
+                    onChange={(e) => setGeneratedSolidity(e.target.value)}
+                    className="p-4 w-full h-full bg-transparent resize-none focus:outline-none text-white font-mono"
+                    spellCheck="false"
+                  />
+                </div>
+              </div>
+
+              {/* Compilation & Deployment Column */}
+              <div className="flex flex-col h-full overflow-y-auto">
+                 {/* Compilation Output */}
+                {compilationResult.abi && (
+                  <div className="mb-4">
+                    <h4 className="text-md font-semibold mb-2 text-green-400">Compilation Output</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-sm text-gray-400 mb-1 block">ABI</label>
+                        <textarea
+                          readOnly
+                          value={JSON.stringify(compilationResult.abi, null, 2)}
+                          className="w-full h-32 p-2 bg-gray-900 rounded-md font-mono text-xs resize-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-400 mb-1 block">Bytecode</label>
+                        <textarea
+                          readOnly
+                          value={compilationResult.bytecode}
+                          className="w-full h-32 p-2 bg-gray-900 rounded-md font-mono text-xs resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Deployment Output */}
+                {deploymentResult.address && (
+                   <div className="mb-4">
+                    <h4 className="text-md font-semibold mb-2 text-blue-400">Deployment Details</h4>
+                    <div className="space-y-2 text-sm bg-gray-900 p-4 rounded-md">
+                       <p><strong className="text-gray-400">Deployed By:</strong> <span className="font-mono text-xs">{walletAddress}</span></p>
+                       <p><strong className="text-gray-400">Contract Address:</strong> <span className="font-mono text-xs">{deploymentResult.address}</span></p>
+                       <p><strong className="text-gray-400">Transaction Hash:</strong> <span className="font-mono text-xs">{deploymentResult.txHash}</span></p>
+                       <p>
+                          <strong className="text-gray-400">Testnet Explorer:</strong> 
+                          <a href={`https://blockscout-passet-hub.parity-testnet.parity.io/tx/${deploymentResult.txHash}`} target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline ml-2">
+                            View on Blockscout
+                          </a>
+                       </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="flex-1 overflow-auto">
-              <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg text-sm overflow-auto">
-                <code className="text-xs text-gray-800 dark:text-gray-200">
-                  {generatedSolidity}
-                </code>
-              </pre>
+
+
+            <div className="flex items-center justify-between mt-auto border-t border-gray-700 pt-4">
+              <div className="flex gap-2">
+                <Button onClick={handleCompile} disabled={operationState.loading || !generatedSolidity}>
+                  {operationState.loading && operationState.message?.startsWith('Compiling') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4"/>}
+                  Compile
+                </Button>
+                <Button onClick={handleDeployContract} disabled={!compilationResult.bytecode || operationState.loading || !walletAddress}>
+                  {operationState.loading && operationState.message?.startsWith('Deploying') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4"/>}
+                  Deploy
+                </Button>
+              </div>
+              <div className="text-sm text-gray-400 text-center flex-1 mx-4">
+                {operationState.message && !operationState.error && <span className="text-green-400">{operationState.message}</span>}
+                {operationState.error && <span className="text-red-400 font-mono text-xs">{operationState.error}</span>}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={copySolidityToClipboard}><Copy className="w-4 h-4 mr-2" />Copy</Button>
+                <Button variant="outline" onClick={downloadSolidityCode}><Download className="w-4 h-4 mr-2" />Download</Button>
+              </div>
             </div>
           </div>
         </div>
@@ -420,3 +435,4 @@ export default function TopBar() {
     </>
   );
 }
+
