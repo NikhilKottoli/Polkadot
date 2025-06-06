@@ -9,14 +9,14 @@ const members = [
     link: "#",
   },
   {
-    name: "Abhijith Sogal",
+    name: "Nikhil Kottoli",
     role: "WEB3  & Blockchain Enthusiast",
     avatar:
       "https://media.licdn.com/dms/image/v2/D5603AQFWknQQgEMbDQ/profile-displayphoto-shrink_200_200/B56ZZEQ_8RGoAY-/0/1744902029497?e=1754524800&v=beta&t=rIlgawWLql0Sa39KiiBMKZrfIWxJc5ICiXTd4EMEkrA",
     link: "#",
   },
   {
-    name: "Nikhil Kottoli",
+    name: "Abhijith Sogal",
     role: "Backend Developer ",
     avatar:
       "https://media.licdn.com/dms/image/v2/D5603AQFLoyVAn0aPuw/profile-displayphoto-shrink_200_200/B56ZY_o.psH0AY-/0/1744824430047?e=1754524800&v=beta&t=__mOP0LXBP0yEQHWhLr-GpfSuQU9VN2EFCTbhaSvzg4",
