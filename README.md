@@ -148,7 +148,7 @@ Contract Address: 0x4E2cDE8Cc8DD1A21DB769548dDE62EC273bb45ac
 Transaction Hash: 0xd153843abf1fe67976c697962cfd1b518d63d5a7782cecabcf3224f3c2add84a
 ```
 
-##App Screens -
+
 
 ![image](https://github.com/user-attachments/assets/f26ecdaf-ed50-4985-bcd4-4905a3e47649)
 
