@@ -24,8 +24,7 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<h1 className="bg-red-500 ">Home Page</h1>} />
-        <Route path="/landingPage" element={<HeroSection />} />
+        <Route path="/" element={<HeroSection />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/project/:id" element={<Playground />} />
         <Route path="/auth" element={<AuthPage />} />
