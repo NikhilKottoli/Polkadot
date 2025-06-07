@@ -38,6 +38,7 @@
 
 - **AI-Powered Code Generation**: Let AI produce Solidity code from your workflow or prompt.
 - **Custom Logic Engine**: Use our hand-crafted logic engine to generate contracts from your designed flowchart—giving you more control and transparency.
+- **Gas Estimation**: High complexity functions are highlighted and offered to deploy in Rust.
 
 ### Additional Features:
 
