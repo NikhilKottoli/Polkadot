@@ -385,7 +385,11 @@ const handleGenerate = async (type) => {
                 </div>
               </div>
 
-        {/* Function Gas Estimates */}
+        
+
+              {/* Compilation & Deployment Column */}
+              <div className="flex flex-col h-full overflow-y-auto">
+                {/* Function Gas Estimates */}
               {gasEstimation?.functionGasEstimates && Object.keys(gasEstimation.functionGasEstimates).length > 0 && (
                 <div className="mb-4 p-3 bg-purple-700/20 border border-purple-500 rounded-md font-mono text-sm max-h-[50vh] overflow-y-auto">
                   <div className="text-sm mb-2 text-purple-300">🔧 Function Gas Estimates:</div>
@@ -406,9 +410,6 @@ const handleGenerate = async (type) => {
                   </div>
                 </div>
               )}
-
-              {/* Compilation & Deployment Column */}
-              <div className="flex flex-col h-full overflow-y-auto">
                 {/* Compilation Output */}
                 {compilationResult.abi && (
                   <div className="mb-4">

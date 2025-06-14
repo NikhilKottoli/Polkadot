@@ -2,9 +2,9 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const fs = require('fs');
-const { execSync } = require('child_process');
 const ethers = require('ethers');
 const { sendTelegramMessage } = require('../polkaflow-telegram-bot');
+const { compile } = require('@parity/resolc'); // Changed import
 
 const app = express();
 app.use(cors());
@@ -16,31 +16,38 @@ const PRIVATE_KEY = "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fce
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const CHAT_ID = "255522477";
-app.post('/api/compile', (req, res) => {
+app.post('/api/compile', async (req, res) => {
   console.log('Received /api/compile request');
-  const solidityCode = req.body.code;
-  fs.writeFileSync('Contract.sol', solidityCode);
-
+  
   try {
-    // 1. Compile bytecode with resolc and capture output
-    console.log('Compiling bytecode...');
-    const resolcOutput = execSync('C:\\polkavm-tools\\resolc.exe --bin Contract.sol', { encoding: 'utf8' });
+    const sources = {
+      'Contract.sol': {
+        content: req.body.code
+      }
+    };
 
-    // Extract only the hex part of the bytecode (after "bytecode: ")
-    // Example resolc output: "Contract `Contract.sol:SimpleStorage` bytecode: 0x1234abcd..."
-    const bytecodeMatch = resolcOutput.match(/0x[0-9a-fA-F]+/);
-    if (!bytecodeMatch) throw new Error('Bytecode not found in resolc output');
-    const bytecode = bytecodeMatch[0];
+    console.log('Compiling with @parity/resolc...');
+    const compilationResult = await compile(sources);
+    
+    // 1. Handle multiple contracts and verify structure
+    const contracts = compilationResult.contracts['Contract.sol'];
+    if (!contracts || Object.keys(contracts).length === 0) {
+      throw new Error('No contracts found in compilation result');
+    }
 
-    // 2. Generate ABI with solc and extract JSON
-    console.log('Generating ABI...');
-    const abiOutput = execSync('C:\\polkavm-tools\\solc.exe --abi Contract.sol', { encoding: 'utf8' });
-    const abiMatch = abiOutput.match(/\[.*\]/s);
-    if (!abiMatch) throw new Error('ABI not found in solc output');
-    const abi = JSON.parse(abiMatch[0]);
+    // 2. Get first contract's details with validation
+    const contractName = Object.keys(contracts)[0];
+    const contractData = contracts[contractName];
+    
+    // 3. Ensure proper bytecode format
+    const bytecode = contractData.evm?.bytecode?.object;
+    console.log('Bytecode:', bytecode);
 
-    // 3. Cleanup temp file
-    fs.unlinkSync('Contract.sol');
+    // 4. Validate ABI structure
+    const abi = contractData.abi;
+    if (!Array.isArray(abi) || abi.length === 0) {
+      throw new Error('Invalid ABI structure');
+    }
 
     console.log('Compilation successful');
 
@@ -56,9 +63,12 @@ app.post('/api/compile', (req, res) => {
 
   } catch (err) {
     console.error('Compilation error:', err.message);
-    // Cleanup any partial files
-    if (fs.existsSync('Contract.sol')) fs.unlinkSync('Contract.sol');
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      // Add debug info for frontend
+      _debug: err.stack 
+    });
   }
 });
 
