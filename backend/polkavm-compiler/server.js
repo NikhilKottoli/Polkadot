@@ -1,7 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-const fs = require('fs');
+const Flowchart = require('./models/FlowChart');
+const { connectDB, clearDatabase } = require('./database');
 const ethers = require('ethers');
 const { sendTelegramMessage } = require('../polkaflow-telegram-bot');
 const { compile } = require('@parity/resolc'); // Changed import
@@ -9,7 +10,7 @@ const { compile } = require('@parity/resolc'); // Changed import
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-
+connectDB();
 // Configure Polkadot AssetHub connection
 const RPC_URL = "https://testnet-passet-hub-eth-rpc.polkadot.io";
 const PRIVATE_KEY = "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fcee2811";
@@ -206,6 +207,126 @@ app.post('/api/deploy', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// app.get('/api/save', async (req, res) => {
+//   const { walletId, projectId } = req.query;
+
+//   if (!walletId || !projectId) {
+//     return res.status(400).json({ success: false, error: 'walletId and projectId are required.' });
+//   }
+
+//   try {
+//     const flow = await Flowchart.findOne({ walletId, projectId });
+//     if (!flow) {
+//       return res.status(404).json({ success: false, error: 'Flowchart not found.' });
+//     }
+//     // Sort versions by timestamp ascending
+//     const sortedVersions = flow.versions.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+//     res.json({ success: true, versions: sortedVersions });
+//   } catch (err) {
+//     res.status(500).json({ success: false, error: err.message });
+//   }
+// });
+
+// app.post('/api/save', async (req, res) => {
+//   const { walletId, projectId, flowData } = req.body;
+//   console.log('got some shit');
+//   if (!walletId || !projectId || !flowData) {
+//     return res.status(400).json({ success: false, error: 'walletId, projectId, and flowData are required.' });
+//   }
+
+//   try {
+//     let flowchart = await Flowchart.findOne({ walletId, projectId });
+
+//     if (flowchart) {
+//       flowchart.versions.push({ flowData, timestamp: new Date() });
+//       await flowchart.save();
+//     } else {
+//       // Create new document
+//       flowchart = new Flowchart({
+//         walletId,
+//         projectId,
+//         versions: [{ flowData, timestamp: new Date() }],
+//         createdAt: new Date()
+//       });
+//       await flowchart.save();
+//     }
+
+//     res.json({ success: true, message: 'Flowchart saved with version control.' });
+//   } catch (err) {
+//     res.status(500).json({ success: false, error: err.message });
+//   }
+// });
+
+app.post('/api/clear', async (req, res) => {
+  try {
+    await Flowchart.deleteMany({});
+    res.json({ success: true, message: 'All flowcharts deleted.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+app.get('/api/save', async (req, res) => {
+  const { walletId, projectId } = req.query;
+
+  if (!walletId || !projectId) {
+    return res.status(400).json({ success: false, error: 'walletId and projectId are required.' });
+  }
+
+  try {
+    const flow = await Flowchart.findOne({ walletId, projectId });
+    if (!flow) {
+      return res.status(404).json({ success: false, error: 'Flowchart not found.' });
+    }
+    // Sort versions by timestamp ascending
+    const sortedVersions = flow.versions.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    res.json({ success: true, versions: sortedVersions });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/save', async (req, res) => {
+  const { walletId, projectId, flowData } = req.body;
+  console.log('got some shit');
+  if (!walletId || !projectId || !flowData) {
+    return res.status(400).json({ success: false, error: 'walletId, projectId, and flowData are required.' });
+  }
+
+  try {
+    let flowchart = await Flowchart.findOne({ walletId, projectId });
+
+    if (flowchart) {
+      flowchart.versions.push({ flowData, timestamp: new Date() });
+      await flowchart.save();
+    } else {
+      // Create new document
+      flowchart = new Flowchart({
+        walletId,
+        projectId,
+        versions: [{ flowData, timestamp: new Date() }],
+        createdAt: new Date()
+      });
+      await flowchart.save();
+    }
+
+    res.json({ success: true, message: 'Flowchart saved with version control.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/clear', async (req, res) => {
+  try {
+    await Flowchart.deleteMany({});
+    res.json({ success: true, message: 'All flowcharts deleted.' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // New endpoint for sending Telegram messages from frontend
 app.post('/api/telegram/send', async (req, res) => {
