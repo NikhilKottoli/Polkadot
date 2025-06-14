@@ -327,24 +327,6 @@ const handleGenerate = async (type) => {
     else if (e.key === "Escape") handleCancelEdit();
   };
   
-  const handleTestAPI = async () => {
-    console.log('🧪 [TopBar] Testing Gemini API...');
-    
-    // Test basic API
-    const apiTest = await testGeminiAPI();
-    console.log('🧪 [TopBar] API Test Result:', apiTest);
-    
-    // Test available models
-    const modelsTest = await testAvailableModels();
-    console.log('🧪 [TopBar] Models Test Result:', modelsTest);
-    
-    if (apiTest.success) {
-      alert(`✅ Gemini API Working!\nResponse: ${apiTest.response}`);
-    } else {
-      alert(`❌ Gemini API Error:\n${apiTest.error}`);
-    }
-  };
-
   if (!currentProject) {
     return (
       <div className="h-[20px] mb-4 px-4 mt-2 flex justify-between w-full">
@@ -415,16 +397,6 @@ const handleGenerate = async (type) => {
           <Button onClick={handleGenerateClick} disabled={isGeneratingSolidity} size="sm" className="bg-green-600 hover:bg-green-700">
             {isGeneratingSolidity ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Code className="mr-2 h-4 w-4" />}
             Generate
-          </Button>
-
-          <Button
-            onClick={handleTestAPI}
-            variant="outline"
-            size="sm"
-            className="bg-green-500/10 hover:bg-green-500/20 border-green-500/30 text-green-400"
-          >
-            <TestTube className="w-4 h-4 mr-2" />
-            Test API
           </Button>
         </div>
       </div>
