@@ -1,5 +1,5 @@
 // AI Service for OpenAI Integration
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 // Validate API key is available
 if (!OPENAI_API_KEY) {

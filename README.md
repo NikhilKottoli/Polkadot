@@ -106,7 +106,12 @@ cd ..
 ```
 
 ### 2. Set up Environment Variables
-Add your OpenAI API key and other configuration as needed.
+
+Create a `.env` file in the root directory and add your OpenAI API key:
+
+```
+VITE_OPENAI_API_KEY=your_openai_api_key_here
+```
 
 ### 3. Ensure Local Compilers
 `solc` and `resolc` must be available in your PATH for contract compilation.

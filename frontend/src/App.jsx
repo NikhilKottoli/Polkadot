@@ -8,6 +8,7 @@ import AssetHubDashboardWithSidebar from "./pages/AssetHub/AssetHubDashboardWith
 import SolidityGenerator from "./pages/SolidityGenerator/SolidityGenerator";
 import MockXcmTrigger from "./MockXCMTrigger";
 import ContractDeployer from "./pages/CompileAndDeploy/CompileAndDeploy";
+import ContractDashboard from "./components/ContractDashboard";
 // Components
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
         />
         <Route path="/solidity-generator" element={<SolidityGenerator />} />
         <Route path="/compile" element={<ContractDeployer />} />
+        <Route path="/contract-testing" element={<ContractDashboard />} />
         <Route path="/mock" element={<MockXcmTrigger />} />
         <Route path="*" element={<h1>404 Not Found</h1>} />
       </Routes>

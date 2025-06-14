@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { addDeployedContract } from "../../utils/deploymentIntegration";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sparkle,
@@ -174,6 +175,24 @@ contract MyContract {
           address: data.contractAddress,
           txHash: data.transactionHash,
         });
+
+        // Auto-save to contract testing dashboard
+        try {
+          const contractData = {
+            name: 'AI Generated Contract',
+            address: data.contractAddress,
+            description: 'Generated via AI and deployed from Solidity Generator',
+            network: 'AssetHub',
+            abi: abi,
+            flowchartNodes: [],
+            deploymentTx: data.transactionHash,
+            deployedBy: 'User'
+          };
+          
+          addDeployedContract(contractData);
+        } catch (autoSaveError) {
+          console.error('Auto-save to dashboard failed:', autoSaveError);
+        }
       } else {
         throw new Error(data.error);
       }
@@ -684,6 +703,22 @@ contract MyContract {
                         <Copy size={16} />
                       </motion.button>
                     </div>
+                  </div>
+
+                  {/* Test Contract Button */}
+                  <div className="mt-6 pt-4 border-t border-green-500/30">
+                    <motion.button
+                      onClick={() => navigate('/contract-testing')}
+                      className="w-full flex items-center justify-center gap-3 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-lg font-medium transition-all shadow-lg hover:shadow-green-500/25"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <Play size={20} />
+                      <span>Test Contract Now</span>
+                    </motion.button>
+                    <p className="text-center text-green-300/70 text-sm mt-2">
+                      Contract automatically saved to testing dashboard
+                    </p>
                   </div>
                 </div>
               </motion.div>

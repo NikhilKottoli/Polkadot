@@ -23,6 +23,7 @@ import useBoardStore from "../../../../store/store";
 import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerator";
 import { compileContract, deployContract } from "../../../../utils/contractService";
 import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
+import { addDeployedContract } from "../../../../utils/deploymentIntegration";
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -166,7 +167,41 @@ export default function TopBar() {
     if (result.success) {
       setDeploymentResult({ address: result.contractAddress, txHash: result.transactionHash });
       setOperationState({ loading: false, error: null, message: `Deployment successful!` });
-      updateProject(currentProject.id, { ...currentProject, status: "deployed", deployedAt: new Date().toISOString() });
+      
+      // Update project status
+      updateProject(currentProject.id, { 
+        ...currentProject, 
+        status: "deployed", 
+        deployedAt: new Date().toISOString(),
+        contractAddress: result.contractAddress,
+        deploymentTx: result.transactionHash
+      });
+
+      // Auto-save to contract testing dashboard
+      try {
+        const nodes = getNodes();
+        const flowchartNodes = nodes.map(node => ({
+          id: node.id,
+          label: node.data?.label || node.type,
+          functionName: node.data?.functionName || node.data?.label?.toLowerCase()?.replace(/\s+/g, '') || 'function'
+        }));
+
+        const contractData = {
+          name: contractName || currentProject.name || 'Deployed Contract',
+          address: result.contractAddress,
+          description: `Auto-deployed from project: ${currentProject.name}`,
+          network: 'AssetHub',
+          abi: compilationResult.abi,
+          flowchartNodes: flowchartNodes,
+          deploymentTx: result.transactionHash,
+          deployedBy: walletAddress
+        };
+
+        addDeployedContract(contractData);
+      } catch (autoSaveError) {
+        console.error('Auto-save to dashboard failed:', autoSaveError);
+        // Don't fail deployment for auto-save error
+      }
     } else {
       setOperationState({ loading: false, error: result.error, message: null });
     }
@@ -341,7 +376,7 @@ export default function TopBar() {
 
       {showSolidityModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-6xl max-h-[90vh] w-full flex flex-col text-white">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-6xl h-[90vh] w-full flex flex-col text-white">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Generated Solidity Contract: <span className="font-mono text-purple-400">{contractName}.sol</span></h3>
               <Button variant="ghost" size="sm" onClick={() => setShowSolidityModal(false)}><X/></Button>
@@ -402,6 +437,24 @@ export default function TopBar() {
                             View on Blockscout
                           </a>
                        </p>
+                    </div>
+                    
+                    {/* Test Contract Button */}
+                    <div className="mt-4">
+                      <Button 
+                        onClick={() => {
+                          navigate('/contract-testing');
+                          setShowSolidityModal(false);
+                        }}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        size="sm"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Test Contract Now
+                      </Button>
+                      <p className="text-xs text-gray-400 mt-1 text-center">
+                        Contract auto-saved to testing dashboard
+                      </p>
                     </div>
                   </div>
                 )}

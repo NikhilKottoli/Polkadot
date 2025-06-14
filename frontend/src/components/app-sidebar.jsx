@@ -127,6 +127,11 @@ const data = {
       url: "#",
       icon: IconFileWord,
     },
+    {
+      name: "Contract Testing",
+      url: "/contract-testing",
+      icon: IconChartBar,
+    },
   ],
 };
 

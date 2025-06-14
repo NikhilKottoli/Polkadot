@@ -19,6 +19,7 @@ import {
   Copy,
   Trash2,
   Code2,
+  TestTube,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import useBoardStore from "../../store/store";
@@ -126,7 +127,7 @@ function SectionCards() {
   const projects = getFilteredProjects();
 
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs px-4 lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card
         onClick={() => {
           navigate("/project/create");
@@ -152,6 +153,23 @@ function SectionCards() {
           </p>
           <p className="text-purple-400/70 text-xs text-center px-2">
             Generate Solidity contracts with AI
+          </p>
+        </div>
+      </Card>
+
+      <Card
+        onClick={() => {
+          navigate("/contract-testing");
+        }}
+        className="p-2 hover:translate-y-[-10px] transition-transform cursor-pointer bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20"
+      >
+        <div className="w-full h-full flex justify-center items-center gap-2 border-green-500/30 border-1 border-dashed rounded-xl flex-col">
+          <TestTube className="size-8 text-green-400" />
+          <p className="text-green-300 text-sm font-medium">
+            Contract Testing
+          </p>
+          <p className="text-green-400/70 text-xs text-center px-2">
+            Test deployed contracts dynamically
           </p>
         </div>
       </Card>

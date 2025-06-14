@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { addDeployedContract } from '../../utils/deploymentIntegration';
 
 export default function ContractDeployer() {
+    const navigate = useNavigate();
     const [code, setCode] = useState(`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
@@ -58,6 +61,24 @@ contract SimpleStorage {
                     address: data.contractAddress,
                     txHash: data.transactionHash
                 })
+
+                // Auto-save to contract testing dashboard
+                try {
+                    const contractData = {
+                        name: 'Manual Deployment',
+                        address: data.contractAddress,
+                        description: 'Deployed via manual compiler interface',
+                        network: 'AssetHub',
+                        abi: abi,
+                        flowchartNodes: [],
+                        deploymentTx: data.transactionHash,
+                        deployedBy: 'User'
+                    };
+                    
+                    addDeployedContract(contractData);
+                } catch (autoSaveError) {
+                    console.error('Auto-save to dashboard failed:', autoSaveError);
+                }
             } else {
                 throw new Error(data.error)
             }
@@ -162,6 +183,20 @@ contract SimpleStorage {
                                 <span className="font-mono ml-2 text-green-400">
                                     {deployed.txHash}
                                 </span>
+                            </p>
+                        </div>
+                        
+                        {/* Test Contract Button */}
+                        <div className="mt-6 pt-4 border-t border-gray-700">
+                            <button
+                                onClick={() => navigate('/contract-testing')}
+                                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
+                            >
+                                <span>🧪</span>
+                                <span>Test Contract Now</span>
+                            </button>
+                            <p className="text-xs text-gray-400 mt-2 text-center">
+                                Contract auto-saved to testing dashboard
                             </p>
                         </div>
                     </div>
