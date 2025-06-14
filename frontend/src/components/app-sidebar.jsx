@@ -44,8 +44,8 @@ const data = {
       icon: IconDashboard,
     },
     {
-      title: "Automations",
-      url: "#",
+      title: "Monitoring",
+      url: "/monitoring",
       icon: IconInnerShadowTop,
     },
     {

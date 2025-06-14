@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@parity/resolc": "^0.2.0",
     "@parity/revive": "^0.0.21",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",

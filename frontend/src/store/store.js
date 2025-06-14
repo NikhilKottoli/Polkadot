@@ -56,6 +56,8 @@ const useBoardStore = create(
           edges: projectData.edges || [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          hits: 0,
+          gasSpent: 0,
         };
 
         set({

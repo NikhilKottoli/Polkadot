@@ -8,6 +8,8 @@ import AssetHubDashboardWithSidebar from "./pages/AssetHub/AssetHubDashboardWith
 import SolidityGenerator from "./pages/SolidityGenerator/SolidityGenerator";
 import MockXcmTrigger from "./MockXCMTrigger";
 import ContractDeployer from "./pages/CompileAndDeploy/CompileAndDeploy";
+import MonitoringWithDashboard from "./pages/AssetHub/MonitoringWithDashboard";
+import { ChakraProvider } from "@chakra-ui/react";
 // Components
 
 function App() {
@@ -33,6 +35,8 @@ function App() {
           path="/assethub"
           element={<AssetHubDashboardWithSidebar />}
         />
+        <Route path="/monitoring" element={
+          <MonitoringWithDashboard />} />
         <Route path="/solidity-generator" element={<SolidityGenerator />} />
         <Route path="/compile" element={<ContractDeployer />} />
         <Route path="/mock" element={<MockXcmTrigger />} />
