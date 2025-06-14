@@ -28,7 +28,7 @@ import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
 import { estimateContractGas } from "./gasEstimation";
 
 
-export default function TopBar() {
+export default function TopBar({walletAddress,setWalletAddress}) {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
@@ -36,7 +36,6 @@ export default function TopBar() {
   const [generatedSolidity, setGeneratedSolidity] = useState("");
   const [showSolidityModal, setShowSolidityModal] = useState(false);
   const [showGenerationChoice, setShowGenerationChoice] = useState(false);
-  const [walletAddress, setWalletAddress] = useState(null);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [contractName, setContractName] = useState("");
   const [compilationResult, setCompilationResult] = useState({ abi: null, bytecode: null });
@@ -263,18 +262,47 @@ const handleGenerate = async (type) => {
 
   const handleCancelEdit = () => setIsEditing(false);
   
-  const handleSave = () => {
-    if (currentProject) {
-      const saveUpdates = {
-        nodes: getNodes(),
-        edges: getEdges(),
-        updatedAt: new Date().toISOString(),
-      };
-      updateProject(currentProject.id, saveUpdates);
-      console.log("Project saved successfully!");
+  const handleSave = async () => {
+    if (!currentProject || !walletAddress) {
+      alert('Project and wallet must be selected.');
+      return;
+    }
+
+    const flowData = {
+      nodes: getNodes(),
+      edges: getEdges(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      const response = await fetch('http://localhost:3000/api/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: currentProject.id,
+          walletId: walletAddress,
+          flowData: flowData,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Project saved successfully!');
+        // Optionally update local state as well
+        updateProject(currentProject.id, flowData);
+      } else {
+        console.error('Save failed:', data.error);
+        alert('Save failed: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Error saving project:', err);
+      alert('Error saving project: ' + err.message);
     }
   };
-  
+
   const takeScreenshotAndExit = async () => {
     if (!currentProject) {
       navigate("/dashboard");

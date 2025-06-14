@@ -11,6 +11,7 @@ import {
   Position,
 } from "@xyflow/react";
 import React, { useEffect, useCallback, useState, use } from "react";
+import VersionTimelineModal from './Timeline';
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../Node/CustomNode";
 import useBoardStore from "../../../../store/store";
@@ -76,7 +77,7 @@ if (typeof document !== "undefined") {
   }
 }
 
-const FlowBoard = ({ projectId }) => {
+const FlowBoard = ({ projectId,walletAddress }) => {
   const {
     getCurrentProject,
     setCurrentProject,
@@ -91,6 +92,8 @@ const FlowBoard = ({ projectId }) => {
 
   const [loader, setLoader] = useState(false);
   const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [versions, setVersions] = useState([]);
 
 useEffect(() => {
     if (location.pathname.endsWith("/create")) {
@@ -105,6 +108,40 @@ useEffect(() => {
       navigate(`/project/${newProjectId}`);
     }
   }, [location.pathname]);
+  const [loading, setLoading] = useState(false); 
+  
+  const fetchVersions = async () => {
+    projectId = currentProject?.id || projectId;
+    if (!walletAddress || !projectId) {
+      alert('Wallet address and project ID are required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `http://localhost:3000/api/save?walletId=${encodeURIComponent(walletAddress)}&projectId=${encodeURIComponent(projectId)}`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setVersions(data.versions || []);
+        setIsModalOpen(true);
+      } else {
+        alert('Error: ' + data.error);
+      }
+    } catch (err) {
+      console.error('Failed to load versions:', err);
+      alert('Failed to load versions: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setVersions([]);
+  };
 
   const {
     selectedNode,
@@ -250,9 +287,12 @@ useEffect(() => {
 
   return (
     <div className="h-screen w-full flex flex-col bg-[#0a0a0a]">
-      {/* Top Bar */}
-
-      {/* Flow Board Container */}
+      {isModalOpen && (
+        <VersionTimelineModal 
+          versions={versions} 
+          onClose={handleCloseModal} 
+        />
+      )}
       <div
         className="w-full h-full relative"
         style={{
@@ -369,9 +409,13 @@ useEffect(() => {
                   Selected: {selectedNode}
                 </div>
               )}
-              <div className="text-xs text-gray-500 mt-1 pt-1 border-t border-gray-700">
-                💡 Double-click edges to edit conditions
-              </div>
+              <button
+                onClick={fetchVersions}
+                disabled={loading}
+                className="text-xs text-gray-500 mt-1 pt-1 border-t border-gray-700 w-full text-left hover:text-blue-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Loading...' : 'Load Previous Version'}
+              </button>
             </div>
           </Panel>
           {loader && <LoadingAnimation />}
