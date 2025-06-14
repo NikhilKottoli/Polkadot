@@ -17,6 +17,7 @@ import {
   Sparkle,
   Wallet,
   X,
+  TestTube,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerat
 import { compileContract, deployContract } from "../../../../utils/contractService";
 import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
 import { estimateContractGas } from "./gasEstimation";
+
 
 export default function TopBar() {
   const navigate = useNavigate();
@@ -186,11 +188,37 @@ const handleGenerate = async (type) => {
       return;
     }
     setOperationState({ loading: true, error: null, message: "Deploying..." });
-    const result = await deployContract(compilationResult.abi, compilationResult.bytecode, walletAddress);
+    const contractName = currentProject?.name || 'FlowchartContract';
+    const result = await deployContract(compilationResult.abi, compilationResult.bytecode, walletAddress, contractName);
     if (result.success) {
       setDeploymentResult({ address: result.contractAddress, txHash: result.transactionHash });
       setOperationState({ loading: false, error: null, message: `Deployment successful!` });
-      updateProject(currentProject.id, { ...currentProject, status: "deployed", deployedAt: new Date().toISOString() });
+      
+      // Update project with deployment info and register for monitoring
+      const deploymentUpdates = { 
+        status: "deployed", 
+        deployedAt: new Date().toISOString(),
+        contractAddress: result.contractAddress,
+        abi: compilationResult.abi
+      };
+      updateProject(currentProject.id, deploymentUpdates);
+      console.log('✅ Project updated with deployment info:', deploymentUpdates);
+      
+      // Register contract for monitoring
+      try {
+        await fetch('http://localhost:3000/api/monitor/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contractAddress: result.contractAddress,
+            abi: compilationResult.abi,
+            contractName: contractName
+          })
+        });
+        console.log('✅ Contract registered for monitoring');
+      } catch (error) {
+        console.error('❌ Failed to register contract for monitoring:', error);
+      }
     } else {
       setOperationState({ loading: false, error: result.error, message: null });
     }
@@ -228,7 +256,7 @@ const handleGenerate = async (type) => {
 
   const handleSaveEdit = () => {
     if (currentProject && editForm.name.trim()) {
-      updateProject(currentProject.id, { ...currentProject, ...editForm });
+      updateProject(currentProject.id, editForm);
       setIsEditing(false);
     }
   };
@@ -237,12 +265,12 @@ const handleGenerate = async (type) => {
   
   const handleSave = () => {
     if (currentProject) {
-      updateProject(currentProject.id, {
-        ...currentProject,
+      const saveUpdates = {
         nodes: getNodes(),
         edges: getEdges(),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      updateProject(currentProject.id, saveUpdates);
       console.log("Project saved successfully!");
     }
   };
@@ -271,6 +299,24 @@ const handleGenerate = async (type) => {
     else if (e.key === "Escape") handleCancelEdit();
   };
   
+  const handleTestAPI = async () => {
+    console.log('🧪 [TopBar] Testing Gemini API...');
+    
+    // Test basic API
+    const apiTest = await testGeminiAPI();
+    console.log('🧪 [TopBar] API Test Result:', apiTest);
+    
+    // Test available models
+    const modelsTest = await testAvailableModels();
+    console.log('🧪 [TopBar] Models Test Result:', modelsTest);
+    
+    if (apiTest.success) {
+      alert(`✅ Gemini API Working!\nResponse: ${apiTest.response}`);
+    } else {
+      alert(`❌ Gemini API Error:\n${apiTest.error}`);
+    }
+  };
+
   if (!currentProject) {
     return (
       <div className="h-[20px] mb-4 px-4 mt-2 flex justify-between w-full">
@@ -341,6 +387,16 @@ const handleGenerate = async (type) => {
           <Button onClick={handleGenerateClick} disabled={isGeneratingSolidity} size="sm" className="bg-green-600 hover:bg-green-700">
             {isGeneratingSolidity ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Code className="mr-2 h-4 w-4" />}
             Generate
+          </Button>
+
+          <Button
+            onClick={handleTestAPI}
+            variant="outline"
+            size="sm"
+            className="bg-green-500/10 hover:bg-green-500/20 border-green-500/30 text-green-400"
+          >
+            <TestTube className="w-4 h-4 mr-2" />
+            Test API
           </Button>
         </div>
       </div>

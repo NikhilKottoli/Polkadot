@@ -160,10 +160,14 @@ contract MyContract {
     setCompileError("");
 
     try {
+      // Extract contract name from code
+      const contractNameMatch = code.match(/contract\s+(\w+)/);
+      const contractName = contractNameMatch ? contractNameMatch[1] : 'GeneratedContract';
+      
       const res = await fetch("http://localhost:3000/api/deploy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bytecode, abi }),
+        body: JSON.stringify({ bytecode, abi, contractName }),
       });
 
       const data = await res.json();

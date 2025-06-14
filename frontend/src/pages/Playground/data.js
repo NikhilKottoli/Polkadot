@@ -93,7 +93,7 @@ export const initialNodes = [
       label: "AI Assistant",
       description: "Process data using AI models",
       properties: {
-        model: "GPT-4",
+        model: "gemini-1.5-flash",
         temperature: "0.7",
       },
       status: "active",

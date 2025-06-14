@@ -1083,13 +1083,13 @@ export const NODE_TYPES = {
 
   // 6. AI/ML NODES
   ai: {
-    openai_completion: {
-      id: "openai_completion",
-      label: "OpenAI GPT Completion",
+    gemini_completion: {
+      id: "gemini_completion",
+      label: "Gemini AI Completion",
       icon: "🧠",
       category: "ai",
       subcategory: "language_model",
-      description: "Generate text using OpenAI GPT models",
+      description: "Generate text using Google's Gemini AI model",
       handles: {
         inputs: [
           {
@@ -1111,8 +1111,8 @@ export const NODE_TYPES = {
       properties: {
         model: {
           type: "select",
-          options: ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"],
-          default: "gpt-4",
+          options: ["gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-2.0-flash-lite"],
+          default: "gemini-1.5-flash",
           label: "Model", 
         },
         max_tokens: { type: "number", default: 150, label: "Max Tokens" },

@@ -36,15 +36,16 @@ export const compileContract = async (code, contractName) => {
  * @param {Array<any>} abi The ABI of the contract.
  * @param {string} bytecode The compiled bytecode of the contract.
  * @param {string} deployerAddress The address of the deployer.
+ * @param {string} contractName The name of the contract for monitoring.
  * @returns {Promise<{success: boolean, contractAddress?: string, transactionHash?: string, error?: string}>}
  */
-export const deployContract = async (abi, bytecode, deployerAddress) => {
-  console.log(`🚀 [ContractService] Starting deployment via backend API`);
+export const deployContract = async (abi, bytecode, deployerAddress, contractName = 'Unknown') => {
+  console.log(`🚀 [ContractService] Starting deployment via backend API for ${contractName}`);
   try {
     const res = await fetch('http://localhost:3000/api/deploy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bytecode, abi, deployerAddress })
+      body: JSON.stringify({ bytecode, abi, deployerAddress, contractName })
     });
     
     const data = await res.json();

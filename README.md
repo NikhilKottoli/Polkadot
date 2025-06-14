@@ -4,7 +4,7 @@
 [![AssetHub](https://img.shields.io/badge/AssetHub-Integrated-blue)](https://polkadot.network)
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.25-blue)](https://soliditylang.org)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org)
-[![AI Powered](https://img.shields.io/badge/AI-Powered-purple)](https://openai.com)
+[![AI Powered](https://img.shields.io/badge/AI-Powered-purple)](https://gemini.com)
 
 ![image](https://github.com/user-attachments/assets/915e74ed-969d-4d3c-86fa-c2fe732583d6)
 
@@ -84,7 +84,7 @@ Transaction Hash : 0xd97d77a9ff9b656af5085c4709a1a1129771e0c8473b9f545b7d85ccc5f
 - Express.js
 - PolkaVM compiler (resolc.exe) integration
 - AssetHub RPC for blockchain interaction
-- OpenAI for AI-powered features
+- Google Gemini AI for AI-powered features
 
 ### Blockchain Layer:
 - Deploys contracts to PolkaVM
@@ -124,7 +124,7 @@ cd ..
 ```
 
 ### 2. Set up Environment Variables
-Add your OpenAI API key and other configuration as needed.
+Add your gemini API key and other configuration as needed.
 
 ### 3. Ensure Local Compilers
 `solc` and `resolc` must be available in your PATH for contract compilation.

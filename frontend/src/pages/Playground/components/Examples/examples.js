@@ -180,14 +180,14 @@ export const governanceAIWorkflow = [
       category: "ai",
       nodeIcon: "🧠",
       label: "Proposal Analysis",
-      description: "Analyze proposal content using GPT-4",
+      description: "Analyze proposal content using Gemini AI",
       properties: {
-        model: "gpt-4",
+        model: "gemini-1.5-flash",
         max_tokens: 500,
         temperature: 0.3,
       },
       status: "active",
-      nodeType: "openai_completion",
+      nodeType: "gemini_completion",
     },
   },
   {
@@ -352,12 +352,12 @@ export const assetCreationWorkflow = [
       label: "Asset Risk Analysis",
       description: "Analyze new asset metadata for risks",
       properties: {
-        model: "gpt-4-turbo",
+        model: "gemini-1.5-flash",
         max_tokens: 300,
         temperature: 0.2,
       },
       status: "active",
-      nodeType: "openai_completion",
+      nodeType: "gemini_completion",
     },
   },
   {
