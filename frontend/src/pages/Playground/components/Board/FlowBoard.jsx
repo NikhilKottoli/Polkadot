@@ -19,7 +19,6 @@ import { nodeTypes, panOnDrag } from "../../data";
 import ToolMenu from "../LayoutComponents/ToolMenu";
 import NodesSheet from "../LayoutComponents/NodesSheet";
 import NodePalette from "../LayoutComponents/PropertiesMenu";
-import TopBar from "../LayoutComponents/TopBar";
 import { NodeContextMenu } from "../Node/NodeContextMenu";
 import { useNodeOperations } from "../../NodeOperations";
 import EdgeConditionEditor from "./EdgeConditionEditor";

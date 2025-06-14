@@ -8,7 +8,7 @@ const compileSolidityFallback = async (sourceCode, contractName) => {
     // Get available versions first
     const versions = await getCompilerVersions();
     console.log("Available versions:", versions);
-    
+
     // Use a specific stable version instead of "latest"
     const targetVersion = versions.find(v => v.startsWith('0.8.')) || versions[0];
     console.log("Using compiler version:", targetVersion);
@@ -87,10 +87,10 @@ class SimpleSolidityCompiler {
     }
 
     this.isLoading = true;
-    
+
     try {
       const compilerUrl = `https://binaries.soliditylang.org/bin/soljson-v${version}+commit.73d13b32.js`;
-      
+
       // Load compiler script
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -120,7 +120,7 @@ class SimpleSolidityCompiler {
   async compile(sourceCode, contractName) {
     try {
       const solc = await this.loadCompiler();
-      
+
       const input = {
         language: 'Solidity',
         sources: {
@@ -136,7 +136,7 @@ class SimpleSolidityCompiler {
       };
 
       const output = JSON.parse(solc.compile(JSON.stringify(input)));
-      
+
       if (output.errors) {
         const errors = output.errors.filter(e => e.severity === 'error');
         if (errors.length > 0) {
@@ -170,40 +170,40 @@ class SimpleSolidityCompiler {
   }
 }
 
-    const generateMockBytecode = (code) => {
-        const functionCount = (code.match(/function\s+\w+/g) || []).length;
-        const variableCount = (code.match(/\b(uint|int|bool|address|string)\s+\w+/g) || []).length;
-        
-        const baseSize = 500; // Smaller base
-        const functionOverhead = functionCount * 100;
-        const variableOverhead = variableCount * 32;
-        
-        const totalSize = baseSize + functionOverhead + variableOverhead;
-        return '0x' + '60'.repeat(Math.floor(totalSize));
-    };
+const generateMockBytecode = (code) => {
+  const functionCount = (code.match(/function\s+\w+/g) || []).length;
+  const variableCount = (code.match(/\b(uint|int|bool|address|string)\s+\w+/g) || []).length;
+
+  const baseSize = 500; // Smaller base
+  const functionOverhead = functionCount * 100;
+  const variableOverhead = variableCount * 32;
+
+  const totalSize = baseSize + functionOverhead + variableOverhead;
+  return '0x' + '60'.repeat(Math.floor(totalSize));
+};
 
 const generateGasEstimates = (abi) => {
   const functionGasEstimates = {};
-  
+
   abi.forEach(item => {
     if (item.type === 'function') {
       // Generate realistic gas estimates based on function characteristics
       let baseGas = 21000; // Base transaction cost
-      
+
       // Add gas based on function type
       if (item.stateMutability === 'view' || item.stateMutability === 'pure') {
         baseGas = Math.floor(Math.random() * 5000) + 1000; // 1k-6k for read functions
       } else {
         baseGas += Math.floor(Math.random() * 50000) + 5000; // 26k-76k for write functions
       }
-      
+
       functionGasEstimates[item.name] = {
         estimated: baseGas,
         method: 'static_estimation'
       };
     }
   });
-  
+
   return { functionGasEstimates };
 };
 
@@ -214,24 +214,24 @@ const handleGenerate = async (type) => {
 
   console.log("🔨 [TopBar] Starting Solidity generation");
   setIsGeneratingSolidity(true);
-  
+
   // Reset states
   setCompilationResult({ abi: null, bytecode: null });
   setDeploymentResult({ address: null, txHash: null });
   setOperationState({ loading: false, error: null, message: null });
-  
+
   const name = currentProject.name.replace(/\s+/g, '') || "MyContract";
   setContractName(name);
 
   try {
     const nodes = getNodes();
     const edges = getEdges();
-    
+
     if (nodes.length === 0) {
       alert("Cannot generate code from an empty flowchart.");
       return;
     }
-    
+
     let solidityCode = "";
     if (type === "our-algorithm") {
       solidityCode = generateSolidityFromFlowchart(nodes, edges, name);
@@ -243,9 +243,9 @@ const handleGenerate = async (type) => {
         solidityCode = `// AI generation failed: ${result.error}`;
       }
     }
-    
+
     setGeneratedSolidity(solidityCode);
-    
+
     // Perform gas estimation with robust compilation
     console.log("⛽ [TopBar] Starting gas estimation");
     try {
@@ -260,7 +260,7 @@ const handleGenerate = async (type) => {
         error: gasError.message || "Gas estimation failed"
       });
     }
-    
+
     setShowSolidityModal(true);
   } catch (error) {
     console.error("Solidity generation failed:", error);
@@ -272,11 +272,11 @@ const handleGenerate = async (type) => {
 // Helper function for cost calculation
 const calculateTotalCost = (deploymentGas, functionGasEstimates) => {
   let totalGas = 0;
-  
+
   if (deploymentGas && typeof deploymentGas.estimated === 'number') {
     totalGas += deploymentGas.estimated;
   }
-  
+
   Object.values(functionGasEstimates).forEach(estimate => {
     if (estimate.estimated && typeof estimate.estimated === 'number') {
       totalGas += estimate.estimated;
@@ -284,7 +284,7 @@ const calculateTotalCost = (deploymentGas, functionGasEstimates) => {
       totalGas += 30000;
     }
   });
-  
+
   return {
     totalGas,
     estimatedCostETH: totalGas * 20e-9, // 20 Gwei
@@ -295,15 +295,15 @@ const calculateTotalCost = (deploymentGas, functionGasEstimates) => {
 // Solution 3: Fallback to static analysis only
 const compileSolidity = async (sourceCode, contractName) => {
   console.log("Using fallback compilation (static analysis only)");
-  
+
   // Simple ABI extraction from source code
   const extractABI = (code) => {
     const abi = [];
     const lines = code.split('\n');
-    
+
     lines.forEach(line => {
       const trimmed = line.trim();
-      
+
       // Extract function signatures
       const functionMatch = trimmed.match(/function\s+(\w+)\s*\([^)]*\)\s*(public|external|internal|private)?\s*(view|pure|payable)?\s*(returns\s*\([^)]*\))?/);
       if (functionMatch) {
@@ -316,7 +316,7 @@ const compileSolidity = async (sourceCode, contractName) => {
           outputs: []
         });
       }
-      
+
       // Extract events
       const eventMatch = trimmed.match(/event\s+(\w+)\s*\([^)]*\)/);
       if (eventMatch) {
@@ -327,13 +327,13 @@ const compileSolidity = async (sourceCode, contractName) => {
         });
       }
     });
-    
+
     return abi;
   };
 
   // Generate mock bytecode (for estimation purposes)
 
-    const gasEstimates = generateGasEstimates(abi);
+  const gasEstimates = generateGasEstimates(abi);
   return {
     success: true,
     abi: extractABI(sourceCode),
@@ -350,14 +350,14 @@ const compileSolidityRobust = async (sourceCode, contractName) => {
     return await compileSolidity(sourceCode, contractName);
   } catch (error1) {
     console.warn("Browser compiler failed, trying CDN approach:", error1.message);
-    
+
     try {
       // Try CDN-based compiler
       const compiler = new SimpleSolidityCompiler();
       return await compiler.compile(sourceCode, contractName);
     } catch (error2) {
       console.warn("CDN compiler failed, using fallback:", error2.message);
-      
+
       // Use fallback static analysis
       return await compileSolidityFallback(sourceCode, contractName);
     }
@@ -375,16 +375,16 @@ const estimateContractGas = async (solidityCode, contractName) => {
       const variableCount = (code.match(/\b(uint|int|bool|address|string)\s+\w+/g) || []).length;
       const modifierCount = (code.match(/\bmodifier\s+\w+/g) || []).length;
       const eventCount = (code.match(/\bevent\s+\w+/g) || []).length;
-      
+
       // Add randomness based on code complexity
       const complexity = functionCount + variableCount + modifierCount + eventCount;
       const randomFactor = Math.random() * 0.3; // ±30% variance
-      
+
       const baseSize = 400 + Math.floor(Math.random() * 300); // 400-700 base
       const functionOverhead = functionCount * (80 + Math.floor(Math.random() * 40)); // 80-120 per function
       const variableOverhead = variableCount * (24 + Math.floor(Math.random() * 16)); // 24-40 per variable
       const complexityOverhead = complexity * (10 + Math.floor(Math.random() * 20)); // Additional complexity
-      
+
       const totalSize = Math.floor((baseSize + functionOverhead + variableOverhead + complexityOverhead) * (1 + randomFactor));
       return '0x' + '60'.repeat(totalSize);
     };
@@ -393,10 +393,10 @@ const estimateContractGas = async (solidityCode, contractName) => {
     const extractABI = (code) => {
       const abi = [];
       const lines = code.split('\n');
-      
+
       lines.forEach(line => {
         const trimmed = line.trim();
-        
+
         // Extract function signatures with better parsing
         const functionMatch = trimmed.match(/function\s+(\w+)\s*\([^)]*\)\s*(public|external|internal|private)?\s*(view|pure|payable)?\s*(returns\s*\([^)]*\))?/);
         if (functionMatch) {
@@ -409,7 +409,7 @@ const estimateContractGas = async (solidityCode, contractName) => {
             outputs: []
           });
         }
-        
+
         // Extract events
         const eventMatch = trimmed.match(/event\s+(\w+)\s*\([^)]*\)/);
         if (eventMatch) {
@@ -420,19 +420,19 @@ const estimateContractGas = async (solidityCode, contractName) => {
           });
         }
       });
-      
+
       return abi;
     };
 
     const bytecode = generateMockBytecode(solidityCode);
     const abi = extractABI(solidityCode);
-    
+
     // Deployment gas calculation with randomization
     const baseGas = 21000;
     const contractCreationGas = 32000 + Math.floor(Math.random() * 8000); // 32k-40k
     const bytecodeLength = bytecode ? (bytecode.replace('0x', '').length / 2) : 0;
     const codeDepositGas = bytecodeLength * (200 + Math.floor(Math.random() * 50)); // 200-250 per byte
-    
+
     const deploymentGas = {
       estimated: baseGas + contractCreationGas + codeDepositGas,
       method: 'static_calculation_with_entropy'
@@ -440,14 +440,14 @@ const estimateContractGas = async (solidityCode, contractName) => {
 
     // Function gas estimates with realistic randomization
     const functionGasEstimates = {};
-    
+
     if (abi && abi.length > 0) {
       const functions = abi.filter(item => item.type === 'function');
-      
+
       functions.forEach(func => {
         const funcName = func.name;
         const isReadOnly = func.stateMutability === 'view' || func.stateMutability === 'pure';
-        
+
         if (isReadOnly) {
           // Read-only functions: 500-8000 gas
           const baseReadGas = 500 + Math.floor(Math.random() * 7500);
@@ -459,7 +459,7 @@ const estimateContractGas = async (solidityCode, contractName) => {
           // State-changing functions: categorize by complexity
           const complexity = getComplexityScore(funcName, solidityCode);
           let gasRange;
-          
+
           if (complexity < 2) {
             // Simple functions: 25k-45k
             gasRange = { min: 25000, max: 45000 };
@@ -470,9 +470,9 @@ const estimateContractGas = async (solidityCode, contractName) => {
             // Complex functions: 70k-150k
             gasRange = { min: 70000, max: 150000 };
           }
-          
+
           const estimatedGas = gasRange.min + Math.floor(Math.random() * (gasRange.max - gasRange.min));
-          
+
           functionGasEstimates[funcName] = {
             estimated: estimatedGas,
             method: 'complexity_based_estimation'
@@ -485,12 +485,12 @@ const estimateContractGas = async (solidityCode, contractName) => {
     function getComplexityScore(funcName, code) {
       const funcRegex = new RegExp(`function\\s+${funcName}[^}]*}`, 's');
       const funcMatch = code.match(funcRegex);
-      
+
       if (!funcMatch) return 1;
-      
+
       const funcBody = funcMatch[0];
       let score = 1;
-      
+
       // Add complexity based on operations
       if (funcBody.includes('for') || funcBody.includes('while')) score += 2;
       if (funcBody.includes('require') || funcBody.includes('assert')) score += 1;
@@ -499,7 +499,7 @@ const estimateContractGas = async (solidityCode, contractName) => {
       if (funcBody.includes('emit')) score += 1;
       if ((funcBody.match(/if/g) || []).length > 1) score += 1;
       if (funcBody.includes('mapping') || funcBody.includes('storage')) score += 2;
-      
+
       return score;
     }
 
@@ -508,7 +508,7 @@ const estimateContractGas = async (solidityCode, contractName) => {
       const avgFunctionGas = Object.values(functionGasEstimates).reduce((sum, func) => {
         return sum + (typeof func.estimated === 'number' ? func.estimated : 0);
       }, 0) / Math.max(Object.keys(functionGasEstimates).length, 1);
-      
+
       return {
         deployment: deploymentGas.estimated,
         averageFunction: Math.floor(avgFunctionGas),
@@ -532,7 +532,7 @@ const estimateContractGas = async (solidityCode, contractName) => {
 };
 
 
-export { 
+export {
   compileSolidityRobust as compileSolidity,
   estimateContractGas,
   handleGenerate,

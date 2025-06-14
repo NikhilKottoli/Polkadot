@@ -7,6 +7,10 @@ export const useEditorStore = create(
     (set, get) => ({
       files: [],
       activeFileId: null,
+      dynamicFiles: [], // Files from contract generation
+      contractData: null, // Store contract generation data
+      gasComparison: null, // Store gas comparison data
+      deployedContracts: {}, // Store deployed contract addresses
       fileTree: {
         // Your existing initialItems structure
       },
@@ -214,6 +218,58 @@ export const useEditorStore = create(
           }
 
           return { fileTree: updatedTree };
+        });
+      },
+
+      // Dynamic contract file management
+      loadContractFiles: (contractData) => {
+        set((state) => ({
+          contractData,
+          dynamicFiles: contractData.files || [],
+          files: contractData.files || [],
+          activeFileId: contractData.files?.[0]?.id || null,
+        }));
+      },
+
+      setDeployedContract: (fileId, contractAddress, txHash) => {
+        set((state) => ({
+          deployedContracts: {
+            ...state.deployedContracts,
+            [fileId]: { address: contractAddress, txHash }
+          }
+        }));
+      },
+
+      updateContractWithAddress: (solidityFileId, rustFileId, rustContractAddress) => {
+        set((state) => {
+          const updatedFiles = state.files.map(file => {
+            if (file.id === solidityFileId) {
+              // Update Solidity contract to use the deployed Rust contract address
+              const updatedContent = file.content.replace(
+                /address\s+constant\s+RUST_CONTRACT\s*=\s*address\(0x[a-fA-F0-9]*\);/,
+                `address constant RUST_CONTRACT = ${rustContractAddress};`
+              );
+              return { ...file, content: updatedContent, isDirty: true };
+            }
+            return file;
+          });
+
+          return { files: updatedFiles };
+        });
+      },
+
+      setGasComparison: (gasData) => {
+        set({ gasComparison: gasData });
+      },
+
+      clearDynamicFiles: () => {
+        set({
+          dynamicFiles: [],
+          contractData: null,
+          gasComparison: null,
+          deployedContracts: {},
+          files: [],
+          activeFileId: null
         });
       },
     }),

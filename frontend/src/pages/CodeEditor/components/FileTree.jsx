@@ -140,11 +140,54 @@ const indent = 20;
 
 export default function FileTree() {
   const [items, setItems] = useState(initialItems);
-  const { openFile } = useEditorStore();
+  const { openFile, dynamicFiles, contractData } = useEditorStore();
+  
+  // Use dynamic files if available, otherwise use default items
+  const shouldShowDynamicFiles = contractData && dynamicFiles.length > 0;
+
+  // Create dynamic tree structure for contract files
+  const createDynamicTree = () => {
+    if (!shouldShowDynamicFiles) return items;
+
+    const dynamicItems = {
+      root: {
+        name: contractData.contractName || "Contract Project",
+        children: ["contracts", "rust"]
+      },
+      contracts: {
+        name: "contracts",
+        children: []
+      },
+      rust: {
+        name: "rust", 
+        children: []
+      }
+    };
+
+    // Add dynamic files to appropriate folders
+    dynamicFiles.forEach(file => {
+      const fileId = file.id;
+      dynamicItems[fileId] = {
+        name: file.name,
+        fileExtension: file.language,
+        type: file.type
+      };
+
+      if (file.type === 'solidity') {
+        dynamicItems.contracts.children.push(fileId);
+      } else if (file.type === 'rust') {
+        dynamicItems.rust.children.push(fileId);
+      }
+    });
+
+    return dynamicItems;
+  };
+
+  const currentItems = shouldShowDynamicFiles ? createDynamicTree() : items;
 
   const tree = useTree({
     initialState: {
-      expandedItems: ["app", "contracts", "scripts", "test"],
+      expandedItems: shouldShowDynamicFiles ? ["contracts", "rust"] : ["app", "contracts", "scripts", "test"],
       selectedItems: [],
     },
     indent,
@@ -153,6 +196,8 @@ export default function FileTree() {
     isItemFolder: (item) => (item.getItemData()?.children?.length ?? 0) > 0,
     canReorder: false,
     onDrop: createOnDropHandler((parentItem, newChildrenIds) => {
+      if (shouldShowDynamicFiles) return; // Don't allow reordering for dynamic files
+      
       setItems((prevItems) => {
         const sortedChildren = [...newChildrenIds].sort((a, b) => {
           const itemA = prevItems[a];
@@ -175,8 +220,8 @@ export default function FileTree() {
       });
     }),
     dataLoader: {
-      getItem: (itemId) => items[itemId],
-      getChildren: (itemId) => items[itemId]?.children ?? [],
+      getItem: (itemId) => currentItems[itemId],
+      getChildren: (itemId) => currentItems[itemId]?.children ?? [],
     },
     features: [
       syncDataLoaderFeature,
@@ -190,13 +235,23 @@ export default function FileTree() {
   const handleFileClick = (item) => {
     if (!item.isFolder()) {
       const itemData = item.getItemData();
-      openFile({
-        id: item.getId(),
-        name: itemData.name,
-        content: getDefaultFileContent(itemData.name, itemData.fileExtension),
-        language: itemData.fileExtension,
-        path: item.getId(),
-      });
+      
+      if (shouldShowDynamicFiles) {
+        // For dynamic files, find the actual file data
+        const dynamicFile = dynamicFiles.find(f => f.id === item.getId());
+        if (dynamicFile) {
+          openFile(dynamicFile);
+        }
+      } else {
+        // For static files, use default behavior
+        openFile({
+          id: item.getId(),
+          name: itemData.name,
+          content: getDefaultFileContent(itemData.name, itemData.fileExtension),
+          language: itemData.fileExtension,
+          path: item.getId(),
+        });
+      }
     }
   };
 

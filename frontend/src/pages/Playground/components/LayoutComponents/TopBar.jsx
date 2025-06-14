@@ -26,6 +26,8 @@ import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerat
 import { compileContract, deployContract } from "../../../../utils/contractService";
 import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
 import { estimateContractGas } from "./gasEstimation";
+import { ContractGenerationService } from "../../../../services/contractGenerationService";
+import { GasEstimationService } from "../../../../services/gasEstimationService";
 
 
 export default function TopBar({walletAddress,setWalletAddress}) {
@@ -47,6 +49,8 @@ export default function TopBar({walletAddress,setWalletAddress}) {
     totalEstimatedCost: null,
     error: null
   });
+  const [contractGenerationResult, setContractGenerationResult] = useState(null);
+  const [showRustOptimizationOption, setShowRustOptimizationOption] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", description: "" });
 
   const {
@@ -112,7 +116,7 @@ const handleGenerate = async (type) => {
     setShowGenerationChoice(false);
     if (!currentProject) return;
 
-    console.log("🔨 [TopBar] Starting Solidity generation");
+    console.log("🔨 [TopBar] Starting contract generation");
     setIsGeneratingSolidity(true);
     // Reset states
     setCompilationResult({ abi: null, bytecode: null });
@@ -124,43 +128,23 @@ const handleGenerate = async (type) => {
     try {
       const nodes = getNodes();
       const edges = getEdges();
-      if (nodes.length === 0) {
-        alert("Cannot generate code from an empty flowchart.");
-        setIsGeneratingSolidity(false);
-        return;
-      }
       
-      let solidityCode = "";
-      if (type === "our-algorithm") {
-        solidityCode = generateSolidityFromFlowchart(nodes, edges, name);
-      } else {
-        const result = await generateSolidityFromFlowchartAI(nodes, edges, name);
-        if (result.success) {
-          solidityCode = result.contractCode;
-        } else {
-          solidityCode = `// AI generation failed: ${result.error}`;
-        }
-      }
-      setGeneratedSolidity(solidityCode);
+      // Use the new ContractGenerationService
+      const result = await ContractGenerationService.generateContract(nodes, edges, name, type);
       
-      // Perform gas estimation
-      console.log("⛽ [TopBar] Starting gas estimation");
-      try {
-        const gasEstimation = await estimateContractGas(solidityCode, name);
-        setGasEstimation(gasEstimation);
-        console.log("⛽ [TopBar] Gas estimation completed:", gasEstimation);
-      } catch (gasError) {
-        console.error("Gas estimation failed:", gasError);
-        setGasEstimation({
-          deploymentGas: null,
-          functionGasEstimates: {},
-          error: gasError.message || "Gas estimation failed"
-        });
+      setGeneratedSolidity(result.original.solidity);
+      setGasEstimation(result.original.gasEstimation);
+      setContractGenerationResult(result);
+      
+      // Check if we have high gas functions that could benefit from Rust optimization
+      if (result.original.highGasFunctions.length > 0) {
+        setShowRustOptimizationOption(true);
       }
       
       setShowSolidityModal(true);
     } catch (error) {
-      console.error("Solidity generation failed:", error);
+      console.error("Contract generation failed:", error);
+      alert(`Contract generation failed: ${error.message}`);
     } finally {
       setIsGeneratingSolidity(false);
     }
@@ -231,6 +215,28 @@ const handleGenerate = async (type) => {
       return;
     }
     setShowGenerationChoice(true);
+  };
+
+  const handleOptimizeWithRust = () => {
+    if (!contractGenerationResult || !contractGenerationResult.optimized) {
+      alert("No optimization data available");
+      return;
+    }
+
+    console.log("🚀 [TopBar] Navigating to code editor with optimization data");
+    console.log("Original contract:", contractGenerationResult.original);
+    console.log("Optimized contracts:", contractGenerationResult.optimized);
+
+    // Navigate to the code editor page with the contract data
+    navigate('/code-editor', {
+      state: {
+        originalContract: contractGenerationResult.original,
+        optimizedContracts: contractGenerationResult.optimized,
+        contractName: contractName,
+        highGasFunctions: contractGenerationResult.original.highGasFunctions
+      }
+    });
+    setShowSolidityModal(false);
   };
 
   const copySolidityToClipboard = () => navigator.clipboard.writeText(generatedSolidity);
@@ -327,23 +333,7 @@ const handleGenerate = async (type) => {
     else if (e.key === "Escape") handleCancelEdit();
   };
   
-  const handleTestAPI = async () => {
-    console.log('🧪 [TopBar] Testing Gemini API...');
-    
-    // Test basic API
-    const apiTest = await testGeminiAPI();
-    console.log('🧪 [TopBar] API Test Result:', apiTest);
-    
-    // Test available models
-    const modelsTest = await testAvailableModels();
-    console.log('🧪 [TopBar] Models Test Result:', modelsTest);
-    
-    if (apiTest.success) {
-      alert(`✅ Gemini API Working!\nResponse: ${apiTest.response}`);
-    } else {
-      alert(`❌ Gemini API Error:\n${apiTest.error}`);
-    }
-  };
+
 
   if (!currentProject) {
     return (
@@ -417,15 +407,7 @@ const handleGenerate = async (type) => {
             Generate
           </Button>
 
-          <Button
-            onClick={handleTestAPI}
-            variant="outline"
-            size="sm"
-            className="bg-green-500/10 hover:bg-green-500/20 border-green-500/30 text-green-400"
-          >
-            <TestTube className="w-4 h-4 mr-2" />
-            Test API
-          </Button>
+          
         </div>
       </div>
 
@@ -483,15 +465,31 @@ const handleGenerate = async (type) => {
                         <span className="text-gray-300">{funcName}():</span>
                         <span className="text-white font-bold">
                           {gasData.estimated > 100000 ? (
-                            <span className="text-red-400">{gasData.estimated} ⚠️ recommend using rust as gas is high </span>
+                            <span className="text-red-400">{gasData.estimated} ⚠️ high gas cost</span>
                           ) : (
                             <span className="text-green-400">{gasData.estimated} gas</span>
                           )} 
                         </span>
-                        
                       </div>
                     ))}
                   </div>
+                  
+                  {/* Rust Optimization Button */}
+                  {showRustOptimizationOption && (
+                    <div className="mt-3 pt-3 border-t border-purple-500/30">
+                      <p className="text-xs text-purple-300 mb-2">
+                        High gas functions detected. Optimize with Rust for better performance.
+                      </p>
+                      <Button 
+                        size="sm" 
+                        onClick={handleOptimizeWithRust}
+                        className="bg-orange-600 hover:bg-orange-700 text-white"
+                      >
+                        <Code className="w-4 h-4 mr-2" />
+                        Optimize with Rust
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
                 {/* Compilation Output */}
