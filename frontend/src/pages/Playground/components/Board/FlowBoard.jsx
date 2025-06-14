@@ -10,7 +10,7 @@ import {
   Handle,
   Position,
 } from "@xyflow/react";
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, use } from "react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../Node/CustomNode";
 import useBoardStore from "../../../../store/store";
@@ -24,6 +24,7 @@ import { useNodeOperations } from "../../NodeOperations";
 import EdgeConditionEditor from "./EdgeConditionEditor";
 import ConnectionTest from "./ConnectionTest";
 import LoadingAnimation from "../../../../components/LoadingAnimation";
+import { useLocation, useNavigate } from "react-router-dom";
 
 // CSS to remove all possible borders and outlines
 const flowStyles = `
@@ -83,11 +84,27 @@ const FlowBoard = ({ projectId }) => {
     getEdges,
     onNodesChange,
     onEdgesChange,
+    createProject,
     onConnect,
     updateNodeProperties,
   } = useBoardStore();
 
   const [loader, setLoader] = useState(false);
+  const navigate = useNavigate();
+
+useEffect(() => {
+    if (location.pathname.endsWith("/create")) {
+      // Create a new project with default or custom data
+      const newProjectId = createProject({
+        name: "Untitled Project",
+        description: "A new workflow project",
+        nodes: [],
+        edges: [],
+      });
+      setCurrentProject(newProjectId);
+      navigate(`/project/${newProjectId}`);
+    }
+  }, [location.pathname]);
 
   const {
     selectedNode,
