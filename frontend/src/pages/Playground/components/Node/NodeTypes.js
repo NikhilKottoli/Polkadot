@@ -478,6 +478,53 @@ export const NODE_TYPES = {
       },
     },
 
+    send_telegram: {
+      id: "send_telegram",
+      label: "Send Telegram Message",
+      icon: "📱",
+      category: "action",
+      subcategory: "notification",
+      description: "Send a message via Telegram bot",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "message_sent",
+            label: "Message Sent",
+            type: "notification_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        chat_id: { 
+          type: "string", 
+          default: "", 
+          label: "Chat ID",
+          description: "Telegram chat ID to send message to"
+        },
+        message_template: { 
+          type: "text", 
+          default: "", 
+          label: "Message Template",
+          description: "Message to send. Use {variable} for dynamic values"
+        },
+        variables: {
+          type: "object",
+          default: {},
+          label: "Variables",
+          description: "Variables to use in the message template"
+        }
+      },
+    },
+
     // Off-Chain Actions
     send_webhook: {
       id: "send_webhook",

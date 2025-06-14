@@ -4,6 +4,7 @@ const cors = require('cors');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const ethers = require('ethers');
+const { sendTelegramMessage } = require('../polkaflow-telegram-bot');
 
 const app = express();
 app.use(cors());
@@ -14,7 +15,7 @@ const RPC_URL = "https://testnet-passet-hub-eth-rpc.polkadot.io";
 const PRIVATE_KEY = "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fcee2811";
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-
+const CHAT_ID = "255522477";
 app.post('/api/compile', (req, res) => {
   console.log('Received /api/compile request');
   const solidityCode = req.body.code;
@@ -42,6 +43,15 @@ app.post('/api/compile', (req, res) => {
     fs.unlinkSync('Contract.sol');
 
     console.log('Compilation successful');
+
+    // Send Telegram notification
+    sendTelegramMessage(CHAT_ID,
+      `✅ Compilation Successful!\n` +
+      `📦 Bytecode: ${bytecode.slice(0, 12)}...\n` +
+      `📄 ABI entries: ${abi.length}`
+    );
+
+
     res.json({ success: true, bytecode, abi });
 
   } catch (err) {
@@ -60,6 +70,15 @@ app.post('/api/deploy', async (req, res) => {
     const factory = new ethers.ContractFactory(abi, bytecode, wallet);
     const contract = await factory.deploy();
     await contract.waitForDeployment();
+
+    console.log('Deployment successful');
+
+    // Send Telegram notification
+    sendTelegramMessage(CHAT_ID,
+      `✅ Deployment Successful!\n` +
+      `🔗 Contract Address: ${contract.target}\n` +
+      `💰 Transaction Hash: ${contract.deploymentTransaction().hash}`
+    );
 
     res.json({
       success: true,
