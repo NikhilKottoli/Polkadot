@@ -208,56 +208,6 @@ app.post('/api/deploy', async (req, res) => {
   }
 });
 
-// app.get('/api/save', async (req, res) => {
-//   const { walletId, projectId } = req.query;
-
-//   if (!walletId || !projectId) {
-//     return res.status(400).json({ success: false, error: 'walletId and projectId are required.' });
-//   }
-
-//   try {
-//     const flow = await Flowchart.findOne({ walletId, projectId });
-//     if (!flow) {
-//       return res.status(404).json({ success: false, error: 'Flowchart not found.' });
-//     }
-//     // Sort versions by timestamp ascending
-//     const sortedVersions = flow.versions.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-//     res.json({ success: true, versions: sortedVersions });
-//   } catch (err) {
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
-
-// app.post('/api/save', async (req, res) => {
-//   const { walletId, projectId, flowData } = req.body;
-//   console.log('got some shit');
-//   if (!walletId || !projectId || !flowData) {
-//     return res.status(400).json({ success: false, error: 'walletId, projectId, and flowData are required.' });
-//   }
-
-//   try {
-//     let flowchart = await Flowchart.findOne({ walletId, projectId });
-
-//     if (flowchart) {
-//       flowchart.versions.push({ flowData, timestamp: new Date() });
-//       await flowchart.save();
-//     } else {
-//       // Create new document
-//       flowchart = new Flowchart({
-//         walletId,
-//         projectId,
-//         versions: [{ flowData, timestamp: new Date() }],
-//         createdAt: new Date()
-//       });
-//       await flowchart.save();
-//     }
-
-//     res.json({ success: true, message: 'Flowchart saved with version control.' });
-//   } catch (err) {
-//     res.status(500).json({ success: false, error: err.message });
-//   }
-// });
-
 app.post('/api/clear', async (req, res) => {
   try {
     await Flowchart.deleteMany({});
