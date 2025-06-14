@@ -21,7 +21,7 @@ import {
   Code2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import useBoardStore from "../../store/store";
+import useBoardStore from "../../store/FlowBoardStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -177,7 +177,7 @@ function ProjectCard({ project }) {
   // Get cached thumbnail with better fallback logic
   const [thumbnailSrc, setThumbnailSrc] = useState(() => {
     const cached = getCachedThumbnail(project.id);
-    return cached || project.thumbnail || "herobg.png";
+    return cached || project.thumbnail || "screenshott.png";
   });
 
   const [imageError, setImageError] = useState(false);
@@ -212,7 +212,9 @@ function ProjectCard({ project }) {
       setImageError(true);
       // Try fallback thumbnail
       const fallback =
-        project.thumbnail !== "herobg.png" ? project.thumbnail : "herobg.png";
+        project.thumbnail !== "screenshot.png"
+          ? project.thumbnail
+          : "screenshot.png";
       setThumbnailSrc(fallback);
     }
   };
@@ -238,7 +240,7 @@ function ProjectCard({ project }) {
         style={{ aspectRatio: "3/2" }}
       >
         <img
-          src={thumbnailSrc}
+          src="screenshot.png"
           className="rounded-lg overflow-hidden w-full h-full object-cover"
           alt={project.name}
           onError={handleImageError}

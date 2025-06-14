@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import useBoardStore from '../../../../store/store';
+import React, { useState, useEffect } from "react";
+import useBoardStore from "../../../../store/FlowBoardStore";
 
 const EdgeConditionEditor = ({ edge, onClose }) => {
   const { getNodes, onEdgesChange, getEdges } = useBoardStore();
-  const [label, setLabel] = useState(edge?.label || '');
-  const [customLabel, setCustomLabel] = useState('');
+  const [label, setLabel] = useState(edge?.label || "");
+  const [customLabel, setCustomLabel] = useState("");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
   const nodes = getNodes();
   const edges = getEdges();
-  const sourceNode = nodes.find(n => n.id === edge?.source);
-  const targetNode = nodes.find(n => n.id === edge?.target);
+  const sourceNode = nodes.find((n) => n.id === edge?.source);
+  const targetNode = nodes.find((n) => n.id === edge?.target);
 
-  const isLogicNode = sourceNode?.data?.nodeType?.includes('logic');
-  const isLoopNode = sourceNode?.data?.nodeType?.includes('loop');
+  const isLogicNode = sourceNode?.data?.nodeType?.includes("logic");
+  const isLoopNode = sourceNode?.data?.nodeType?.includes("loop");
 
   useEffect(() => {
-    if (edge?.label && !['true', 'false', 'yes', 'no'].includes(edge.label)) {
+    if (edge?.label && !["true", "false", "yes", "no"].includes(edge.label)) {
       setCustomLabel(edge.label);
       setShowCustomInput(true);
     }
@@ -24,7 +24,7 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
 
   const handleSave = () => {
     const newLabel = showCustomInput ? customLabel : label;
-    
+
     // Update the edge with new label
     const updatedEdge = {
       ...edge,
@@ -32,16 +32,14 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
     };
 
     // Update edges in store
-    const updatedEdges = edges.map(e => 
-      e.id === edge.id ? updatedEdge : e
-    );
+    const updatedEdges = edges.map((e) => (e.id === edge.id ? updatedEdge : e));
 
     // Apply the change
     onEdgesChange([
       {
-        type: 'reset',
-        item: updatedEdges
-      }
+        type: "reset",
+        item: updatedEdges,
+      },
     ]);
 
     onClose();
@@ -50,23 +48,23 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
   const predefinedLabels = () => {
     if (isLogicNode) {
       return [
-        { value: 'true', label: 'True' },
-        { value: 'false', label: 'False' },
-        { value: 'yes', label: 'Yes' },
-        { value: 'no', label: 'No' },
+        { value: "true", label: "True" },
+        { value: "false", label: "False" },
+        { value: "yes", label: "Yes" },
+        { value: "no", label: "No" },
       ];
     } else if (isLoopNode) {
       return [
-        { value: 'continue', label: 'Continue' },
-        { value: 'break', label: 'Break' },
-        { value: 'next', label: 'Next' },
+        { value: "continue", label: "Continue" },
+        { value: "break", label: "Break" },
+        { value: "next", label: "Next" },
       ];
     } else {
       return [
-        { value: 'success', label: 'Success' },
-        { value: 'error', label: 'Error' },
-        { value: 'complete', label: 'Complete' },
-        { value: 'next', label: 'Next' },
+        { value: "success", label: "Success" },
+        { value: "error", label: "Error" },
+        { value: "complete", label: "Complete" },
+        { value: "next", label: "Next" },
       ];
     }
   };
@@ -77,12 +75,17 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
         <h3 className="text-white text-lg font-semibold mb-4">
           Edit Edge Condition
         </h3>
-        
+
         <div className="space-y-4">
           {/* Source and Target Info */}
           <div className="text-sm text-gray-400">
-            <div>From: <span className="text-white">{sourceNode?.data?.label}</span></div>
-            <div>To: <span className="text-white">{targetNode?.data?.label}</span></div>
+            <div>
+              From:{" "}
+              <span className="text-white">{sourceNode?.data?.label}</span>
+            </div>
+            <div>
+              To: <span className="text-white">{targetNode?.data?.label}</span>
+            </div>
           </div>
 
           {/* Predefined Labels */}
@@ -100,8 +103,8 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
                   }}
                   className={`px-3 py-2 text-sm rounded border ${
                     label === option.value && !showCustomInput
-                      ? 'border-blue-500 bg-blue-600/20 text-blue-300'
-                      : 'border-[#404040] bg-[#262626] text-gray-300 hover:bg-[#333333]'
+                      ? "border-blue-500 bg-blue-600/20 text-blue-300"
+                      : "border-[#404040] bg-[#262626] text-gray-300 hover:bg-[#333333]"
                   }`}
                 >
                   {option.label}
@@ -115,17 +118,17 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
             <button
               onClick={() => {
                 setShowCustomInput(true);
-                setLabel('');
+                setLabel("");
               }}
               className={`w-full px-3 py-2 text-sm rounded border ${
                 showCustomInput
-                  ? 'border-blue-500 bg-blue-600/20 text-blue-300'
-                  : 'border-[#404040] bg-[#262626] text-gray-300 hover:bg-[#333333]'
+                  ? "border-blue-500 bg-blue-600/20 text-blue-300"
+                  : "border-[#404040] bg-[#262626] text-gray-300 hover:bg-[#333333]"
               }`}
             >
               Custom Label
             </button>
-            
+
             {showCustomInput && (
               <input
                 type="text"
@@ -140,7 +143,8 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
 
           {/* Current Label Preview */}
           <div className="text-sm text-gray-400">
-            Current label: <span className="text-white font-mono">
+            Current label:{" "}
+            <span className="text-white font-mono">
               {showCustomInput ? customLabel : label}
             </span>
           </div>
@@ -167,4 +171,4 @@ const EdgeConditionEditor = ({ edge, onClose }) => {
   );
 };
 
-export default EdgeConditionEditor; 
+export default EdgeConditionEditor;

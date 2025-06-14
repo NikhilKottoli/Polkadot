@@ -13,7 +13,7 @@ import {
 import React, { useEffect, useCallback, useState } from "react";
 import "@xyflow/react/dist/style.css";
 import CustomNode from "../Node/CustomNode";
-import useBoardStore from "../../../../store/store";
+import useBoardStore from "../../../../store/FlowBoardStore";
 import { nodeTypes, panOnDrag } from "../../data";
 import ToolMenu from "../LayoutComponents/ToolMenu";
 import NodesSheet from "../LayoutComponents/NodesSheet";

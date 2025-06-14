@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import useBoardStore from "../../../../store/store";
+import useBoardStore from "../../../../store/FlowBoardStore";
 import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerator";
 
 export default function TopBar() {

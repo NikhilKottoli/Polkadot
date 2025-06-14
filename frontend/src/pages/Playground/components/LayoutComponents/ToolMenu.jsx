@@ -24,7 +24,7 @@ import {
   generateFlowchartFromPrompt,
   SAMPLE_PROMPTS,
 } from "../../../../utils/aiService";
-import useBoardStore from "../../../../store/store";
+import useBoardStore from "../../../../store/FlowBoardStore";
 
 const menuButtons = [
   {
@@ -83,6 +83,7 @@ export default function ToolMenu({ setLoader }) {
       console.warn("⚠️ [AI] Empty input provided");
       return;
     }
+    // Add a fake wait for better UX
 
     console.log("🎯 [AI] Setting generating state to true");
     setIsGenerating(true);
@@ -90,6 +91,7 @@ export default function ToolMenu({ setLoader }) {
 
     // Use the setLoader prop to show global loading state
     setLoader(true);
+    await new Promise((resolve) => setTimeout(resolve, 4000));
 
     try {
       console.log("🤖 [AI] Calling generateFlowchartFromPrompt...");

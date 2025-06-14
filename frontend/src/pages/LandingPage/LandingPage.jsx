@@ -192,7 +192,9 @@ export default function HeroSection() {
         <FeaturesSection />
         <TeamSection />
         <FooterSection />
-        {/* <LoadingAnimation /> */}
+        {/* <div className="h-screen">
+          <LoadingAnimation />
+        </div> */}
       </main>
     </>
   );

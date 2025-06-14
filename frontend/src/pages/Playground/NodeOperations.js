@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import useBoardStore from "../../store/store";
+import useBoardStore from "../../store/FlowBoardStore";
 
 export const useNodeOperations = () => {
   const {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import useBoardStore from "../../../../store/store";
+import useBoardStore from "../../../../store/FlowBoardStore";
 import {
   Minimize2,
   Maximize2,

@@ -8,6 +8,7 @@ import AssetHubDashboardWithSidebar from "./pages/AssetHub/AssetHubDashboardWith
 import SolidityGenerator from "./pages/SolidityGenerator/SolidityGenerator";
 import MockXcmTrigger from "./MockXCMTrigger";
 import ContractDeployer from "./pages/CompileAndDeploy/CompileAndDeploy";
+import CodeEditor from "./pages/CodeEditor/CodeEditor";
 // Components
 
 function App() {
@@ -24,18 +25,16 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<h1 className="bg-red-500 ">Home Page</h1>} />
+        <Route path="/" element={<HeroSection />} />
         <Route path="/landingPage" element={<HeroSection />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/project/:id" element={<Playground />} />
         <Route path="/auth" element={<AuthPage />} />
-        <Route
-          path="/assethub"
-          element={<AssetHubDashboardWithSidebar />}
-        />
+        <Route path="/assethub" element={<AssetHubDashboardWithSidebar />} />
         <Route path="/solidity-generator" element={<SolidityGenerator />} />
         <Route path="/compile" element={<ContractDeployer />} />
         <Route path="/mock" element={<MockXcmTrigger />} />
+        <Route path="/editor" element={<CodeEditor />} />
         <Route path="*" element={<h1>404 Not Found</h1>} />
       </Routes>
     </>

@@ -1,6 +1,6 @@
 import React from "react";
 import { useNodeOperations } from "../../NodeOperations";
-import useBoardStore from "../../../../store/store";
+import useBoardStore from "../../../../store/FlowBoardStore";
 import {
   Copy,
   Trash2,
@@ -24,7 +24,11 @@ const NodePalette = () => {
     clearSelection,
   } = useNodeOperations();
 
-  const { getNodes, getEdges, updateNodeProperties: storeUpdateNodeProperties } = useBoardStore();
+  const {
+    getNodes,
+    getEdges,
+    updateNodeProperties: storeUpdateNodeProperties,
+  } = useBoardStore();
 
   // Don't render if no node is selected
   if (!selectedNode) {
@@ -59,7 +63,7 @@ const NodePalette = () => {
       ...currentNode.data.properties,
       [key]: value,
     };
-    
+
     // Use the store method directly for immediate updates
     storeUpdateNodeProperties(selectedNode, updatedProperties);
   };
@@ -76,28 +80,30 @@ const NodePalette = () => {
   const handleInputClick = (e) => {
     e.stopPropagation();
   };
-  
+
   const handleInputFocus = (e) => {
     e.stopPropagation();
   };
 
   const renderPropertyField = (key, property) => {
     // Handle both old format (value only) and new format (with type/options)
-    const value = typeof property === 'object' && property.hasOwnProperty('value') 
-      ? property.value 
-      : property;
-    
-    const propertyType = typeof property === 'object' && property.type 
-      ? property.type 
-      : typeof value;
+    const value =
+      typeof property === "object" && property.hasOwnProperty("value")
+        ? property.value
+        : property;
 
-    const options = typeof property === 'object' && property.options 
-      ? property.options 
-      : null;
+    const propertyType =
+      typeof property === "object" && property.type
+        ? property.type
+        : typeof value;
 
-    const label = typeof property === 'object' && property.label 
-      ? property.label 
-      : key;
+    const options =
+      typeof property === "object" && property.options
+        ? property.options
+        : null;
+
+    const label =
+      typeof property === "object" && property.label ? property.label : key;
 
     switch (propertyType) {
       case "boolean":
@@ -126,8 +132,10 @@ const NodePalette = () => {
               onFocus={handleInputFocus}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {options?.map(option => (
-                <option key={option} value={option}>{option}</option>
+              {options?.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
               ))}
             </select>
           </div>
@@ -166,11 +174,13 @@ const NodePalette = () => {
         );
 
       case "object":
-        const objValue = value && typeof value === 'object' ? value : {};
+        const objValue = value && typeof value === "object" ? value : {};
         const jsonString = JSON.stringify(objValue, null, 2);
         return (
           <div>
-            <label className="block text-sm text-gray-300 mb-1">{label} (JSON)</label>
+            <label className="block text-sm text-gray-300 mb-1">
+              {label} (JSON)
+            </label>
             <textarea
               value={jsonString}
               onChange={(e) => {
@@ -179,7 +189,7 @@ const NodePalette = () => {
                   handlePropertyChange(key, parsed);
                 } catch (err) {
                   // Invalid JSON, don't update
-                  console.warn('Invalid JSON:', err);
+                  console.warn("Invalid JSON:", err);
                 }
               }}
               onClick={handleInputClick}
@@ -210,7 +220,7 @@ const NodePalette = () => {
 
   return (
     <div className="w-[400px] h-[98%] p-4 absolute right-[-20px] top-[-18px] z-[200] bottom-[10px]">
-      <div 
+      <div
         className="w-full h-full  border border-white/10 bg-[#171717]/90 backdrop-blur-md shadow-lg  flex flex-col overflow-y-scroll"
         onClick={(e) => e.stopPropagation()}
       >
