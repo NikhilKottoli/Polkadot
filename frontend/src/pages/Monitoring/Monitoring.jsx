@@ -13,7 +13,7 @@ import {
   Cell,
 } from "recharts";
 import { SiteHeader } from "@/components/site-header";
-import { AreaChartIcon } from "lucide-react";
+import { AreaChartIcon, MessageCircle, Bell, CheckCircle, AlertCircle } from "lucide-react";
 const COLORS = ["#a259ff", "#e0aaff", "#ffb7ff", "#ffb4a2", "#cdb4db", "#fff"];
 
 function Monitoring() {
@@ -23,6 +23,8 @@ function Monitoring() {
     registered: 0,
     total: 0,
   });
+  const [telegramNotifications, setTelegramNotifications] = useState([]);
+  const [deploymentNotifications, setDeploymentNotifications] = useState([]);
 
   // Get the filtered projects using your store
   const { getFilteredProjects } = useBoardStore();
@@ -50,6 +52,38 @@ function Monitoring() {
     });
   }, [projects.length, deployedProjects.length]);
 
+  // Check for deployment notifications
+  React.useEffect(() => {
+    const checkDeploymentStatus = async () => {
+      try {
+        const response = await fetch("http://localhost:3000/api/monitor/status");
+        if (response.ok) {
+          const status = await response.json();
+          console.log("📡 [Monitoring] Backend status:", status);
+          
+          if (status.contracts) {
+            const notifications = status.contracts.map(contract => ({
+              id: contract.address,
+              type: 'deployment',
+              title: `Contract Deployed: ${contract.name}`,
+              message: `Contract monitoring started for ${contract.name}`,
+              address: contract.address,
+              timestamp: contract.deployedAt,
+              status: contract.isMonitoring ? 'active' : 'inactive'
+            }));
+            setDeploymentNotifications(notifications);
+          }
+        }
+      } catch (error) {
+        console.error("❌ Failed to fetch monitoring status:", error);
+      }
+    };
+
+    checkDeploymentStatus();
+    const interval = setInterval(checkDeploymentStatus, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   // Register deployed projects for monitoring on component mount
   React.useEffect(() => {
     const registerDeployedProjects = async () => {
@@ -74,6 +108,18 @@ function Monitoring() {
             if (response.ok) {
               registeredCount++;
               console.log(`✅ Registered ${project.name} for monitoring`);
+              
+              // Add to telegram notifications
+              setTelegramNotifications(prev => [...prev, {
+                id: `register-${project.id}-${Date.now()}`,
+                type: 'monitoring',
+                title: `Monitoring Started`,
+                message: `Telegram monitoring enabled for ${project.name}`,
+                contractName: project.name,
+                address: project.contractAddress,
+                timestamp: new Date().toISOString(),
+                status: 'active'
+              }]);
             } else {
               console.warn(
                 `⚠️ Failed to register ${project.name} for monitoring`
@@ -339,10 +385,16 @@ function Monitoring() {
               return null;
             }
           })
-          .filter((parsed) => parsed && parsed.name === "SendTelegram");
+          .filter((parsed) => parsed && (
+            parsed.name === "SendTelegram" || 
+            parsed.name === "SendTelegramNotification" ||
+            parsed.name === "TelegramNotify" ||
+            parsed.name === "NotifyTelegram" ||
+            parsed.name === "SendNotification"
+          ));
 
         console.log(
-          `📨 Found ${sendTelegramEvents.length} SendTelegram events in transaction`
+          `📨 Found ${sendTelegramEvents.length} telegram notification events in transaction`
         );
       } catch (parseError) {
         console.warn("⚠️ Could not parse transaction logs:", parseError);
@@ -352,6 +404,25 @@ function Monitoring() {
         // Send manual notification via backend for immediate feedback
         const eventData = sendTelegramEvents[0];
         try {
+          // Handle different event argument structures
+          let message, user;
+          if (eventData.args.message && eventData.args.user) {
+            message = eventData.args.message;
+            user = eventData.args.user;
+          } else if (eventData.args.msg && eventData.args.sender) {
+            message = eventData.args.msg;
+            user = eventData.args.sender;
+          } else if (eventData.args.text && eventData.args.from) {
+            message = eventData.args.text;
+            user = eventData.args.from;
+          } else if (eventData.args.length >= 2) {
+            message = eventData.args[0];
+            user = eventData.args[1];
+          } else {
+            message = `${eventData.name} event triggered`;
+            user = "Unknown";
+          }
+
           const response = await fetch(
             "http://localhost:3000/api/telegram/send",
             {
@@ -361,11 +432,9 @@ function Monitoring() {
               },
               body: JSON.stringify({
                 chatId: "255522477",
-                message: `🧪 Contract Test Successful!\n📍 Contract: ${
+                message: `🧪 Contract Test Successful!\n📍 Event: ${eventData.name}\n📍 Contract: ${
                   project.name
-                }\n📝 Message: ${eventData.args.message}\n👤 User: ${
-                  eventData.args.user
-                }\n💰 Tx Hash: ${
+                }\n📝 Message: ${message}\n👤 User: ${user}\n💰 Tx Hash: ${
                   tx.hash
                 }\n🕒 Time: ${new Date().toLocaleString()}`,
               }),
@@ -386,12 +455,26 @@ function Monitoring() {
           ...prev,
           [project.id]: {
             success: true,
-            message: `✅ Contract tested successfully! SendTelegram event emitted. Tx: ${tx.hash.slice(
+            message: `✅ Contract tested successfully! ${eventData.name} event emitted. Tx: ${tx.hash.slice(
               0,
               10
             )}...`,
           },
         }));
+
+        // Add to telegram notifications for UI display
+        setTelegramNotifications(prev => [...prev, {
+          id: `test-${project.id}-${Date.now()}`,
+          type: 'event',
+          title: `${eventData.name} Event Detected`,
+          message: `Contract test triggered telegram event: ${message}`,
+          contractName: project.name,
+          address: project.contractAddress,
+          timestamp: new Date().toISOString(),
+          status: 'active',
+          eventType: eventData.name,
+          transactionHash: tx.hash
+        }]);
       } else {
         setTestResults((prev) => ({
           ...prev,
@@ -643,6 +726,44 @@ contract TestContract {
     }
   };
 
+  // Test telegram system function
+  const testTelegramSystem = async () => {
+    try {
+      console.log("🧪 Testing Telegram notification system...");
+      
+      const response = await fetch("http://localhost:3000/api/telegram/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `🧪 Test from Monitoring Dashboard\n📊 Time: ${new Date().toLocaleString()}\n📈 Projects: ${deployedProjects.length}\n🔔 Status: Active`
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("✅ Telegram test successful:", data);
+        
+        // Add to telegram notifications
+        setTelegramNotifications(prev => [...prev, {
+          id: `telegram-test-${Date.now()}`,
+          type: 'test',
+          title: `Telegram System Test`,
+          message: `Test notification sent successfully to Telegram`,
+          timestamp: new Date().toISOString(),
+          status: 'active'
+        }]);
+        
+        alert("✅ Telegram test notification sent successfully!");
+      } else {
+        console.error("❌ Telegram test failed");
+        alert("❌ Telegram test failed - check console for details");
+      }
+    } catch (error) {
+      console.error("❌ Error testing Telegram system:", error);
+      alert(`❌ Error testing Telegram system: ${error.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen p-8 pt-0 px-0 bg-background font-sans text-foreground rounded-2xl mt-2">
       <SiteHeader />
@@ -757,6 +878,157 @@ contract TestContract {
           </div>
         </div>
 
+        {/* Telegram Notifications Section */}
+        <div className="mt-16 mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <MessageCircle className="w-6 h-6 text-blue-400" />
+            <h2 className="font-bold text-xl text-foreground">
+              Telegram Notifications
+            </h2>
+            <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded-lg text-sm">
+              Live Monitoring
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Deployment Notifications */}
+            <div className="bg-card rounded-2xl shadow-lg p-6 border border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <Bell className="w-5 h-5 text-green-400" />
+                <h3 className="font-semibold text-lg text-card-foreground">
+                  Deployment Status
+                </h3>
+                <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs">
+                  {deploymentNotifications.filter(n => n.status === 'active').length} Active
+                </span>
+              </div>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {deploymentNotifications.length > 0 ? deploymentNotifications.map(notification => (
+                  <div key={notification.id} className="bg-background/50 rounded-lg p-3 border border-border/50">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${
+                        notification.status === 'active' ? 'bg-green-400' : 'bg-orange-400'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-card-foreground">
+                          {notification.title}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {notification.message}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {notification.address && `${notification.address.slice(0, 10)}...`}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {new Date(notification.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No deployment notifications yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Event Notifications */}
+            <div className="bg-card rounded-2xl shadow-lg p-6 border border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <MessageCircle className="w-5 h-5 text-blue-400" />
+                <h3 className="font-semibold text-lg text-card-foreground">
+                  Event Monitoring
+                </h3>
+                <span className="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-xs">
+                  {telegramNotifications.length} Events
+                </span>
+              </div>
+              
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {telegramNotifications.length > 0 ? telegramNotifications.map(notification => (
+                  <div key={notification.id} className="bg-background/50 rounded-lg p-3 border border-border/50">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-2 h-2 rounded-full mt-2 ${
+                        notification.status === 'active' ? 'bg-blue-400' : 'bg-gray-400'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-card-foreground">
+                          {notification.title}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {notification.message}
+                        </div>
+                        {notification.contractName && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Contract: {notification.contractName}
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {new Date(notification.timestamp).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No telegram events detected yet</p>
+                    <p className="text-xs mt-1">Events will appear when contracts emit telegram notifications</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Monitoring Stats */}
+          <div className="bg-card rounded-2xl shadow-lg p-6 border border-border">
+            <div className="flex items-center gap-2 mb-4">
+              <AreaChartIcon className="w-5 h-5 text-purple-400" />
+              <h3 className="font-semibold text-lg text-card-foreground">
+                Monitoring Overview
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">
+                  {monitoringStatus.registered}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Contracts Monitored
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">
+                  {deploymentNotifications.filter(n => n.status === 'active').length}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Active Deployments
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-400">
+                  {telegramNotifications.length}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total Events
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-400">
+                  {deployedProjects.length}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total Projects
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Project Cards */}
         <div className="flex justify-between items-center mb-4 mt-16">
           <h2 className="font-bold text-xl text-foreground">
@@ -841,6 +1113,14 @@ contract TestContract {
                 />
               </svg>
               Check Events
+            </button>
+
+            <button
+              onClick={testTelegramSystem}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500/30 text-blue-100 border border-blue-700 rounded-lg cursor-pointer text-sm font-semibold hover:bg-blue-700 hover:border-blue-600 transition-all duration-200 shadow-sm"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Test Telegram
             </button>
           </div>
         </div>

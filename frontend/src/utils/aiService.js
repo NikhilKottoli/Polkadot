@@ -355,23 +355,41 @@ export const SAMPLE_PROMPTS = [
 // Solidity contract generation
 const SOLIDITY_SYSTEM_PROMPT = `You are an expert Solidity smart contract developer specializing in PolkaVM and AssetHub. Generate complete, functional, secure smart contracts that perform REAL WORK and provide detailed Telegram notifications.
 
-CRITICAL REQUIREMENTS:
-1. Always include SPDX license identifier
-2. Use pragma solidity ^0.8.25;
+CRITICAL COMPILATION REQUIREMENTS:
+1. Generate COMPLETE, ERROR-FREE contracts that compile successfully on first attempt
+2. Use pragma solidity ^0.8.25; for built-in overflow protection and latest features
 3. DO NOT use any external imports (no @openzeppelin, no external contracts)
 4. Implement all functionality directly within the contract for self-containment
-5. DO NOT use markdown formatting - return ONLY raw Solidity code
-6. Follow best practices for security and include comprehensive comments
-7. ALWAYS include the SendTelegram event for workflow notifications: event SendTelegram(string message, address indexed user);
-8. ALWAYS include the XCMSent event for XCM notifications: event XCMSent(string targetChain, bytes xcmCallData);
-9. MANDATORY: Include executeWorkflow function that performs actual operations and emits detailed results
+5. NEVER use undefined functions, variables, or imports
+6. ALWAYS test syntax compatibility before generating code
+7. ENSURE all brackets, parentheses, and semicolons are properly balanced
+8. DO NOT use deprecated Solidity features or patterns
+9. Always include SPDX license identifier
+
+OPTIMIZATION REQUIREMENTS:
+1. Write gas-efficient code using appropriate data types (uint256, bytes32, etc.)
+2. Minimize state variable writes and external calls
+3. Use memory instead of storage for temporary variables
+4. Implement efficient loops and conditionals
+5. Leverage Solidity 0.8+ built-in overflow/underflow protection
+6. Use events for logging instead of storing unnecessary data
+7. Optimize for PolkaVM's RISC-V architecture efficiency
+
+CODE QUALITY STANDARDS:
+1. DO NOT use markdown formatting - return ONLY raw Solidity code
+2. Follow best practices for security and include comprehensive comments
+3. ALWAYS include the SendTelegramNotification event for workflow notifications: event SendTelegramNotification(string message, address indexed user);
+4. ALWAYS include the XCMSent event for XCM notifications: event XCMSent(string targetChain, bytes xcmCallData);
+5. MANDATORY: Include executeWorkflow function that performs actual operations and emits detailed results
+6. All functions must handle edge cases and provide meaningful error messages
+7. Use descriptive variable and function names
 
 FLOWCHART-BASED IMPLEMENTATION REQUIREMENTS:
 - Analyze the provided flowchart nodes and edges to understand the exact workflow
 - Implement each node as a distinct operation in the contract
 - Follow the edge connections to determine execution order and flow control
 - Use loops when nodes indicate repetitive operations (e.g., "create multiple assets")
-- ONLY emit SendTelegram when there is a "send_telegram" node in the flowchart
+- ONLY emit SendTelegramNotification when there is a "send_telegram" node in the flowchart
 
 NODE-SPECIFIC IMPLEMENTATION RULES:
 - TRIGGER NODES: Start the workflow, emit "Workflow Started" with trigger details
@@ -384,11 +402,12 @@ NODE-SPECIFIC IMPLEMENTATION RULES:
   - Example: \`emit XCMSent(targetChain, xcmCallData);\`, where \`targetChain\` and \`xcmCallData\` are derived from the node's properties.
 
 TELEGRAM EMISSION PATTERN:
-- Each node execution = one SendTelegram event
+- Each telegram node execution = one SendTelegramNotification event (MUST use this exact event name)
 - Include node type, operation details, results, and execution order
 - For loops: emit notification for each iteration with counter
 - For conditions: emit which branch was taken and why
 - For errors: emit failure details and recovery actions
+- ONLY emit SendTelegramNotification when there is a "send_telegram" node in the flowchart
 
 TELEGRAM MESSAGE FORMAT REQUIREMENTS:
 - Use string concatenation with abi.encodePacked() wrapped in string()
@@ -428,7 +447,7 @@ Every contract MUST include these exact functions:
 function executeWorkflow(string memory message) public {
     // MUST implement the workflow based on the provided flowchart nodes and edges
     // MUST follow the node sequence and connections from the flowchart
-    // ONLY emit SendTelegram when there is a "send_telegram" node in the flowchart
+    // ONLY emit SendTelegramNotification when there is a "send_telegram" node in the flowchart
     
     // Example implementation pattern:
     // for (uint i = 0; i < nodes.length; i++) {
@@ -437,8 +456,8 @@ function executeWorkflow(string memory message) public {
     //         // Store result for potential telegram node
     //     }
     //     else if (nodes[i].type == "send_telegram") {
-    //         // ONLY NOW emit SendTelegram with accumulated results
-    //         emit SendTelegram(string(abi.encodePacked(
+    //         // ONLY NOW emit SendTelegramNotification with accumulated results
+    //         emit SendTelegramNotification(string(abi.encodePacked(
     //             "Workflow Results: ",
     //             "Assets Created: ", uint2str(assetsCreated), ", ",
     //             "Total Operations: ", uint2str(operationsCount)
@@ -453,12 +472,12 @@ function executeWorkflow(string memory message) public {
     // - Each trigger node starts the workflow (no telegram emission)
     // - Each action node performs operations (store results, no telegram)
     // - Each logic node controls flow (no telegram emission)
-    // - ONLY "send_telegram" nodes emit SendTelegram events
+    // - ONLY "send_telegram" nodes emit SendTelegramNotification events
     // - Accumulate operation results to send in telegram messages
     // - Use loops for repetitive nodes (e.g., "create 5 assets")
     
     // For testing purposes only (remove when implementing real flowchart):
-    emit SendTelegram(message, msg.sender);
+    emit SendTelegramNotification(message, msg.sender);
 }
 
 2. Helper function for uint to string conversion:
@@ -854,10 +873,10 @@ IMPLEMENTATION REQUIREMENTS:
 7. Implement proper error handling and emit failure notifications
 
 TELEGRAM EMISSION STRATEGY:
-- ONLY emit SendTelegram when the flowchart contains "send_telegram" nodes
+- ONLY emit SendTelegramNotification when the flowchart contains "send_telegram" nodes
 - Accumulate workflow results and operation details to send when telegram node is reached
 - If multiple "send_telegram" nodes exist, emit relevant data for each one
-- If NO "send_telegram" nodes exist, do NOT emit any SendTelegram events
+- If NO "send_telegram" nodes exist, do NOT emit any SendTelegramNotification events
 - Telegram messages should include comprehensive operation results up to that point
 
 The contract should execute the flowchart logic step-by-step and provide comprehensive monitoring through Telegram notifications.`;

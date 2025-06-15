@@ -6,7 +6,8 @@ const { connectDB, clearDatabase } = require('./database');
 const ethers = require('ethers');
 const { sendTelegramMessage } = require('../polkaflow-telegram-bot');
 const { compile } = require('@parity/resolc'); // Changed import
-const { pollForEvents, setupEventMonitoring } = require('./utils');
+const { pollForEvents, setupEventMonitoring, stopEventMonitoring, getMonitoringStatus } = require('./utils');
+const { TELEGRAM_CONFIG, BLOCKCHAIN_CONFIG } = require('./telegram-config');
 const fs = require('fs');
 const path = require('path');
 const { handleRustCode } = require("./controllers/rustHandler");
@@ -579,9 +580,18 @@ app.get('/api/xcm/status', (req, res) => {
 
 app.post('/api/compile', async (req, res) => {
   const { code, contractName } = req.body;
-  console.log(
-    `Received /api/compile request for: ${contractName || "Unknown Contract"}`
-  );
+  const finalContractName = contractName || "Unknown Contract";
+  console.log(`Received /api/compile request for: ${finalContractName}`);
+
+  // Send Telegram notification for compilation start
+  if (TELEGRAM_CONFIG.ENABLE_NOTIFICATIONS) {
+    sendTelegramMessage(TELEGRAM_CONFIG.CHAT_ID,
+      `🔨 Compilation Started!\n` +
+      `📍 Contract: ${finalContractName}\n` +
+      `📝 Code Length: ${code.length} characters\n` +
+      `🕒 Started: ${new Date().toLocaleString()}`
+    ).catch(console.error);
+  }
 
   try {
     const sources = {
@@ -600,8 +610,8 @@ app.post('/api/compile', async (req, res) => {
     }
 
     // 2. Get first contract's details with validation
-    const contractName = Object.keys(contracts)[0];
-    const contractData = contracts[contractName];
+    const compiledContractName = Object.keys(contracts)[0];
+    const contractData = contracts[compiledContractName];
 
     // 3. Ensure proper bytecode format
     const bytecode = contractData.evm?.bytecode?.object;
@@ -615,9 +625,41 @@ app.post('/api/compile', async (req, res) => {
 
     console.log("Compilation successful");
 
+    // Send Telegram notification for successful compilation
+    if (TELEGRAM_CONFIG.ENABLE_NOTIFICATIONS) {
+      const functionCount = abi.filter(item => item.type === 'function').length;
+      const eventCount = abi.filter(item => item.type === 'event').length;
+      const telegramEvents = abi.filter(item => 
+        item.type === 'event' && 
+        TELEGRAM_CONFIG.MONITORED_EVENTS.includes(item.name)
+      );
+      
+      sendTelegramMessage(TELEGRAM_CONFIG.CHAT_ID,
+        `✅ Compilation Successful!\n` +
+        `📍 Contract: ${finalContractName}\n` +
+        `📊 Bytecode Size: ${bytecode ? (bytecode.length / 2) : 0} bytes\n` +
+        `📋 Functions: ${functionCount}\n` +
+        `📋 Events: ${eventCount}\n` +
+        `📨 Telegram Events: ${telegramEvents.length}\n` +
+        `🔔 Events: ${telegramEvents.map(e => e.name).join(', ') || 'None'}\n` +
+        `🕒 Completed: ${new Date().toLocaleString()}`
+      ).catch(console.error);
+    }
+
     res.json({ success: true, bytecode, abi });
   } catch (err) {
     console.error("Compilation error:", err.message);
+    
+    // Send Telegram notification for compilation error
+    if (TELEGRAM_CONFIG.ENABLE_NOTIFICATIONS) {
+      sendTelegramMessage(TELEGRAM_CONFIG.CHAT_ID,
+        `❌ Compilation Failed!\n` +
+        `📍 Contract: ${finalContractName}\n` +
+        `❌ Error: ${err.message.slice(0, 200)}...\n` +
+        `🕒 Time: ${new Date().toLocaleString()}`
+      ).catch(console.error);
+    }
+    
     res.status(500).json({
       success: false,
       error: err.message,
@@ -694,16 +736,20 @@ app.post("/api/deploy", async (req, res) => {
     setupEventMonitoring(contractAddress, abi, contractName || "Unknown");
 
     // Send Telegram notification for deployment
-    sendTelegramMessage(
-      CHAT_ID,
-      `✅ Deployment Successful!\n` +
-      `📍 Contract: ${contractName || "Unknown"}\n` +
-      `🔗 Address: ${contractAddress}\n` +
-      `💰 Transaction Hash: ${transactionHash}\n` +
-      `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch((error) => {
-      console.error("❌ Failed to send deployment notification:", error);
-    });
+    if (TELEGRAM_CONFIG.ENABLE_NOTIFICATIONS) {
+      sendTelegramMessage(
+        TELEGRAM_CONFIG.CHAT_ID,
+        `✅ Deployment Successful!\n` +
+        `📍 Contract: ${contractName || "Unknown"}\n` +
+        `🔗 Address: ${contractAddress}\n` +
+        `💰 Transaction Hash: ${transactionHash}\n` +
+        `📡 Auto-monitoring enabled for telegram events\n` +
+        `🔔 Watching for: ${TELEGRAM_CONFIG.MONITORED_EVENTS.join(', ')}\n` +
+        `🕒 Time: ${new Date().toLocaleString()}`
+      ).catch((error) => {
+        console.error("❌ Failed to send deployment notification:", error);
+      });
+    }
 
     res.json({
       success: true,
@@ -836,6 +882,18 @@ app.post("/api/monitor/register", async (req, res) => {
       abi,
       contractName || "Registered Contract"
     );
+
+    // Send Telegram notification for new monitoring
+    if (TELEGRAM_CONFIG.ENABLE_NOTIFICATIONS) {
+      sendTelegramMessage(TELEGRAM_CONFIG.CHAT_ID,
+        `📡 Contract Monitoring Started!\n` +
+        `📍 Contract: ${contractName || "Registered Contract"}\n` +
+        `🔗 Address: ${contractAddress.slice(0, 10)}...\n` +
+        `🔔 Monitoring Events: ${TELEGRAM_CONFIG.MONITORED_EVENTS.join(', ')}\n` +
+        `⏱️ Interval: ${TELEGRAM_CONFIG.MONITOR_INTERVAL}ms\n` +
+        `🕒 Started: ${new Date().toLocaleString()}`
+      ).catch(console.error);
+    }
 
     res.json({
       success: true,
@@ -1308,7 +1366,89 @@ app.get("/api/getAllAssets/:contractAddress", async (req, res) => {
     });
   } catch (err) {
     console.error("Failed to fetch all assets:", err.message);
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message     });
+  }
+});
+
+// Get monitoring status
+app.get("/api/monitor/status", async (req, res) => {
+  try {
+    const status = getMonitoringStatus();
+    res.json({
+      success: true,
+      ...status
+    });
+  } catch (error) {
+    console.error("❌ Failed to get monitoring status:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Stop monitoring for a specific contract
+app.post("/api/monitor/stop", async (req, res) => {
+  try {
+    const { contractAddress } = req.body;
+
+    if (!contractAddress) {
+      return res.status(400).json({
+        success: false,
+        error: "contractAddress is required",
+      });
+    }
+
+    const stopped = stopEventMonitoring(contractAddress);
+
+    if (stopped) {
+      // Send Telegram notification for stopped monitoring
+      if (TELEGRAM_CONFIG.ENABLE_NOTIFICATIONS) {
+        sendTelegramMessage(TELEGRAM_CONFIG.CHAT_ID,
+          `🛑 Contract Monitoring Stopped!\n` +
+          `🔗 Address: ${contractAddress.slice(0, 10)}...\n` +
+          `🕒 Stopped: ${new Date().toLocaleString()}`
+        ).catch(console.error);
+      }
+
+      res.json({
+        success: true,
+        message: `Monitoring stopped for ${contractAddress}`,
+      });
+    } else {
+      res.status(404).json({
+        success: false,
+        error: "Contract not found in monitoring list",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Failed to stop monitoring:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+// Test telegram notification
+app.post("/api/telegram/test", async (req, res) => {
+  try {
+    const { message } = req.body;
+    const testMessage = message || "🧪 Test notification from Polkaflow!";
+
+    const result = await sendTelegramMessage(TELEGRAM_CONFIG.CHAT_ID, testMessage);
+
+    res.json({
+      success: true,
+      message: "Test notification sent successfully",
+      messageId: result.messageId
+    });
+  } catch (error) {
+    console.error("❌ Failed to send test notification:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 });
 
