@@ -12,7 +12,7 @@ const ConnectionTest = () => {
   const { getNodes, getEdges, onConnect, exportFlowchart, getCurrentProject } =
     useBoardStore();
 
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
 
   const nodes = getNodes();

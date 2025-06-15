@@ -54,8 +54,6 @@ export default function DashboardPage() {
               <div className="w-full h-full flex justify-center items-center gap-2 border-white/20 border-1 border-dashed rounded-[35px] flex-col p-1">
                 <div className="w-full h-full flex justify-center items-center gap-2 border-white/20 border-1 border-dashed rounded-[32px] flex-col ">
                   <div className="bg-gradient-to-br w-full h-full rounded-3xl overflow-hidden">
-                    {/* Background decorative elements */}
-                    {/* <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-pink-400/10"></div> */}
 
                     {/* Main content container */}
                     <div className="relative z-10 flex  items-center justify-between h-full px-8 text-center ">
@@ -95,8 +93,6 @@ export default function DashboardPage() {
                             ></path>
                           </svg>
                         </button>
-
-                        <p className="mr-4 opacity-70">Learn More about it</p>
                       </div>
                     </div>
 
