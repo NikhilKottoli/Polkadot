@@ -56,6 +56,8 @@ export default function CodeEditor() {
 
   // Initialize files from contract generation data
   useEffect(() => {
+    console.log("🔄 [CodeEditor] Initializing files...", { originalContract, optimizedContracts, contractName });
+    
     if (originalContract) {
       // Clear existing files and load contract files
       const contractFiles = [];
@@ -73,13 +75,23 @@ export default function CodeEditor() {
         dependencies: [],
         originalGas: originalContract.gasEstimation?.functionGasEstimates || {}
       });
+      
+      console.log("✅ [CodeEditor] Added main Solidity contract");
 
       // Add optimized contracts if available
       if (optimizedContracts) {
+        console.log("🦀 [CodeEditor] Adding Rust contracts:", optimizedContracts.rustContracts);
+        
         optimizedContracts.rustContracts.forEach((rustContract, index) => {
+          // Validate rust contract data
+          if (!rustContract.name || !rustContract.code) {
+            console.warn("⚠️ [CodeEditor] Invalid Rust contract:", rustContract);
+            return;
+          }
+          
           // Add Rust contract (only .rs files, hide config files)
           contractFiles.push({
-            id: `rust-${index}`,
+            id: `rust-${rustContract.functionName || rustContract.name}`, // Use function name for ID
             name: `${rustContract.name}.rs`,
             content: rustContract.code,
             language: 'rust',
@@ -88,26 +100,35 @@ export default function CodeEditor() {
             canCompile: true,
             canDeploy: true,
             dependencies: [],
+            functionName: rustContract.functionName || rustContract.name,
             estimatedGasSavings: rustContract.estimatedGasSavings,
             optimizations: rustContract.optimizations,
             cargoToml: rustContract.cargoToml, // Store but don't show
             makefile: rustContract.makefile    // Store but don't show
           });
+          
+          console.log(`✅ [CodeEditor] Added Rust contract: ${rustContract.name}.rs`);
         });
 
         // Add optimized Solidity contract
-        contractFiles.push({
-          id: 'optimized-solidity',
-          name: `${contractName}_optimized.sol`,
-          content: optimizedContracts.modifiedSolidity,
-          language: 'solidity',
-          path: `contracts/${contractName}_optimized.sol`,
-          type: 'solidity',
-          canCompile: true,
-          canDeploy: true,
-          dependencies: optimizedContracts.rustContracts.map((_, index) => `rust-${index}`),
-          isOptimized: true
-        });
+        if (optimizedContracts.modifiedSolidity) {
+          contractFiles.push({
+            id: 'optimized-solidity',
+            name: `${contractName}_optimized.sol`,
+            content: optimizedContracts.modifiedSolidity,
+            language: 'solidity',
+            path: `contracts/${contractName}_optimized.sol`,
+            type: 'solidity',
+            canCompile: true,
+            canDeploy: true,
+            dependencies: optimizedContracts.rustContracts.map((rustContract) => `rust-${rustContract.functionName || rustContract.name}`),
+            isOptimized: true
+          });
+          
+          console.log("✅ [CodeEditor] Added optimized Solidity contract");
+        } else {
+          console.warn("⚠️ [CodeEditor] No optimized Solidity content found");
+        }
 
         // Set gas comparison data
         setGasComparison({
@@ -125,11 +146,16 @@ export default function CodeEditor() {
       }
 
       // Load contract files into store
+      console.log("📁 [CodeEditor] Loading contract files:", contractFiles);
       loadContractFiles({
         files: contractFiles,
         contractName,
         highGasFunctions
       });
+      
+      console.log("🎯 [CodeEditor] Files loaded successfully");
+    } else {
+      console.warn("⚠️ [CodeEditor] No original contract data found");
     }
   }, [originalContract, optimizedContracts, contractName, loadContractFiles, setGasComparison, highGasFunctions]);
 
@@ -300,7 +326,7 @@ export default function CodeEditor() {
   const calculateActualGasSavings = async (rustFile, contractAddress) => {
     try {
       // Get original gas consumption for this function
-      const functionName = rustFile.name.replace(`${contractName}_`, '').replace('_rust.rs', '');
+      const functionName = rustFile.functionName || rustFile.name.replace('_optimized.rs', '');
       const originalGas = gasComparison?.original?.functionGasEstimates?.[functionName]?.estimated;
       
       console.log(`📊 Calculating gas savings for ${functionName}:`, {

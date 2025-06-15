@@ -1,0 +1,30 @@
+{
+  "name": "polkadot-contract-backend",
+  "version": "1.0.0",
+  "description": "Backend for Polkadot contract compilation and deployment",
+  "main": "index.js",
+  "scripts": {
+    "setup": "./setup.sh",
+    "compile-rust": "cargo build --release",
+    "compile-solidity": "npx @parity/revive@latest --bin",
+    "deploy": "cast send --account dev-account --create",
+    "estimate": "cast estimate",
+    "call": "cast call"
+  },
+  "dependencies": {
+    "@parity/revive": "latest"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "polkadot",
+    "rust",
+    "solidity",
+    "smart-contracts",
+    "polkavm"
+  ],
+  "author": "Polkadot Contract Generator",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 
