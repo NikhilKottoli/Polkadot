@@ -1,5 +1,5 @@
 [package]
-name = "rust-contract-template"
+name = "my-polkarust-contract"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -7,7 +7,7 @@ rust-version = "1.84"
 
 [[bin]]
 name = "contract"
-path = "src/main.rs"
+path = "main.rs"   # Change if your entry file is different
 
 [profile.release]
 opt-level = "s"
@@ -23,4 +23,3 @@ git = "https://github.com/paritytech/polkadot-sdk.git"
 rev = "38d2fa859861005157ccb249dca1378f015e0b06"
 default-features = false
 features = ["unstable-hostfn"]
-

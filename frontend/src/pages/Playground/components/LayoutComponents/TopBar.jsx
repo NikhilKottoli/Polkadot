@@ -112,15 +112,12 @@ export default function TopBar({
     const initWallet = async () => {
       if (window.ethereum) {
         try {
-          // Check for existing accounts
           const accounts = await window.ethereum.request({
             method: "eth_accounts",
           });
           if (accounts.length > 0) {
             setWalletAddress(accounts[0]);
           }
-
-          // Listen for account changes
           window.ethereum.on("accountsChanged", (newAccounts) => {
             setWalletAddress(newAccounts.length > 0 ? newAccounts[0] : null);
           });
@@ -130,7 +127,6 @@ export default function TopBar({
       }
     };
     initWallet();
-
     return () => {
       if (window.ethereum?.removeListener) {
         window.ethereum.removeListener("accountsChanged", () => {});
@@ -246,7 +242,6 @@ export default function TopBar({
     const projectName = currentProject.name || "MyContract";
     const name = projectName.replace(/\s+/g, '') || "MyContract";
     setContractName(name);
-
     try {
       const nodes = getNodes();
       const edges = getEdges();
@@ -284,7 +279,6 @@ export default function TopBar({
           error: gasError.message || "Gas estimation failed"
         });
       }
-
       setShowSolidityModal(true);
     } catch (error) {
       console.error("Legacy generation failed:", error);
@@ -336,7 +330,6 @@ export default function TopBar({
         message: `Deployment successful!`,
       });
 
-      // Update project with deployment info and register for monitoring
       const deploymentUpdates = {
         status: "deployed",
         deployedAt: new Date().toISOString(),
@@ -344,12 +337,7 @@ export default function TopBar({
         abi: compilationResult.abi,
       };
       updateProject(currentProject.id, deploymentUpdates);
-      console.log(
-        "✅ Project updated with deployment info:",
-        deploymentUpdates
-      );
 
-      // Register contract for monitoring
       try {
         await fetch("http://localhost:3000/api/monitor/register", {
           method: "POST",
@@ -360,7 +348,6 @@ export default function TopBar({
             contractName: contractName,
           }),
         });
-        console.log("✅ Contract registered for monitoring");
       } catch (error) {
         console.error("❌ Failed to register contract for monitoring:", error);
       }
@@ -384,12 +371,6 @@ export default function TopBar({
       alert("No optimization data available");
       return;
     }
-
-    console.log("🚀 [TopBar] Navigating to code editor with optimization data");
-    console.log("Original contract:", contractGenerationResult.original);
-    console.log("Optimized contracts:", contractGenerationResult.optimized);
-
-    // Navigate to the code editor page with the contract data
     navigate("/code-editor", {
       state: {
         originalContract: contractGenerationResult.original,
@@ -412,7 +393,6 @@ export default function TopBar({
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
-    console.log("💾 [TopBar] Solidity code downloaded");
   };
 
   const handleStartEdit = () => {
@@ -462,15 +442,11 @@ export default function TopBar({
       const data = await response.json();
 
       if (data.success) {
-        console.log("Project saved successfully!");
-        // Optionally update local state as well
         updateProject(currentProject.id, flowData);
       } else {
-        console.error("Save failed:", data.error);
         alert("Save failed: " + data.error);
       }
     } catch (err) {
-      console.error("Error saving project:", err);
       alert("Error saving project: " + err.message);
     }
   };
@@ -534,7 +510,6 @@ export default function TopBar({
           <p className="font-bold">Polkaflow</p>
           <div className="w-84" />
         </div>
-
         <div className="flex-1 flex justify-center items-center">
           {isEditing ? (
             <div className="flex gap-2 items-center">
@@ -567,22 +542,22 @@ export default function TopBar({
             </div>
           )}
         </div>
-
         <div className="flex gap-2 items-center">
           <Button onClick={handleSave} size="sm" className="-mr-4 z-2">
             <Save className="mr-2 h-4 w-4" />
             Save
           </Button>
-          <Button
-            onClick={() => {
-              setVersionTrigger((a) => !a);
-            }}
-            variant="outline"
-            className="text-xs  cursor-pointer hover:text-white  h-8  border  border-white/60"
-          >
-            Load version
-          </Button>
-
+          {setVersionTrigger && (
+            <Button
+              onClick={() => {
+                setVersionTrigger((a) => !a);
+              }}
+              variant="outline"
+              className="text-xs  cursor-pointer hover:text-white  h-8  border  border-white/60"
+            >
+              Load version
+            </Button>
+          )}
           <div className="relative ">
             {!walletAddress ? (
               <Button onClick={handleConnectWallet} size="sm">
@@ -597,7 +572,6 @@ export default function TopBar({
                 >
                   <Wallet className="h-5 w-5 text-green-500" />
                 </Button>
-
                 {showWalletDetails && (
                   <div className="absolute top-12 right-0 bg-gray-800 border border-gray-700 rounded-lg p-4 w-72 z-50 text-white shadow-lg">
                     <p className="text-sm text-gray-400 mb-1">
@@ -619,7 +593,6 @@ export default function TopBar({
               </>
             )}
           </div>
-
           <Button
             onClick={handleGenerateClick}
             disabled={isGeneratingSolidity}
@@ -777,7 +750,7 @@ export default function TopBar({
         </div>
       )}
 
-      {showSolidityModal && (
+{showSolidityModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur">
           <div className="bg-background border rounded-lg p-6 max-w-[80%] max-h-[90vh] w-full flex flex-col min-h-[70vh] shadow-lg">
             {/* Header */}
@@ -803,7 +776,7 @@ export default function TopBar({
             <div className="flex gap-6 flex-1 overflow-auto">
               {/* Code Editor Column */}
 
-              <Card className="flex flex-col h-full max-w-[60%]">
+              <Card className="flex flex-col h-full flex-1">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-muted-foreground">
                     Solidity Code
@@ -851,7 +824,7 @@ export default function TopBar({
               </Card>
 
               {/* Compilation & Deployment Column */}
-              <div className="flex flex-col h-full overflow-y-auto space-y-4">
+              <div className="flex flex-col h-full overflow-y-auto space-y-4 min-w-[200px] ">
                 {/* Gas Estimates */}
                 {gasEstimation?.functionGasEstimates &&
                   Object.keys(gasEstimation.functionGasEstimates).length >
