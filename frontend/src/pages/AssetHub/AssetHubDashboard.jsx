@@ -55,25 +55,26 @@ const AssetHubDashboard = () => {
   const [balance, setBalance] = useState("");
   const [frozen, setFrozen] = useState(null);
 
-  // Load only user's owned assets
-  const loadUserAssets = async () => {
-    if (!account) return;
-    
+  // Load all assets (since backend creates all assets)
+  const loadAllAssets = async () => {
     try {
-      console.log("Loading user's owned assets...");
-      const response = await fetch(`${BACKEND_URL}/api/getUserOwnedAssets/${account}`);
+      console.log("Loading all assets...");
+      const response = await fetch(`${BACKEND_URL}/api/getNextAssetId/${CONTRACT_ADDRESS}`);
       const result = await response.json();
       
       if (result.success) {
-        setExistingAssets(result.assets);
-        console.log("Loaded user assets:", result.assets);
+        // Create array of all asset IDs from 0 to nextAssetId-1
+        const allAssets = [];
+        for (let i = 0; i < result.nextAssetId; i++) {
+          allAssets.push(i);
+        }
+        setExistingAssets(allAssets);
+        console.log("Loaded assets:", allAssets);
       } else {
-        console.error("Failed to load user assets:", result.error);
-        setExistingAssets([]); // Set empty if no assets
+        console.error("Failed to load assets:", result.error);
       }
     } catch (error) {
-      console.error('Failed to load user assets:', error);
-      setExistingAssets([]);
+      console.error('Failed to load assets:', error);
     }
   };
 
@@ -97,8 +98,8 @@ const AssetHubDashboard = () => {
       
       console.log("Connected to:", address);
       
-      // Load only user's assets after connecting
-      setTimeout(() => loadUserAssets(), 500);
+      // Load all assets after connecting
+      await loadAllAssets();
       
     } catch (error) {
       console.error("Connection error:", error);
@@ -122,8 +123,7 @@ const AssetHubDashboard = () => {
         body: JSON.stringify({
           assetId: freezeAssetId,
           account: freezeAccount,
-          contractAddress: CONTRACT_ADDRESS,
-          userAddress: account // Add user address for ownership check
+          contractAddress: CONTRACT_ADDRESS
         }),
       });
 
@@ -165,7 +165,7 @@ const AssetHubDashboard = () => {
     return addr ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : "";
   };
 
-  // Asset creation handler - Updated to pass user address
+  // Asset creation handler
   const handleCreateAsset = async () => {
     try {
       setLoading(true);
@@ -178,8 +178,7 @@ const AssetHubDashboard = () => {
           name: assetName,
           symbol: assetSymbol,
           decimals: assetDecimals,
-          contractAddress: CONTRACT_ADDRESS,
-          userAddress: account // Pass user address
+          contractAddress: CONTRACT_ADDRESS
         }),
       });
 
@@ -187,8 +186,8 @@ const AssetHubDashboard = () => {
       
       if (result.success) {
         setContractTestResult(`✅ Asset created successfully! TX: ${result.transactionHash}`);
-        // Refresh user's assets only
-        await loadUserAssets();
+        // Refresh asset list
+        await loadAllAssets();
         // Clear form
         setAssetName("");
         setAssetSymbol("");
@@ -203,7 +202,7 @@ const AssetHubDashboard = () => {
     }
   };
 
-  // Mint handler - Updated to pass user address
+  // Mint handler
   const handleMint = async () => {
     if (!existingAssets.includes(Number(mintAssetId))) {
       setContractTestResult("❌ Invalid or non-existing asset ID");
@@ -220,8 +219,7 @@ const AssetHubDashboard = () => {
           assetId: mintAssetId,
           to: mintTo,
           amount: mintAmount,
-          contractAddress: CONTRACT_ADDRESS,
-          userAddress: account // Add user address for ownership check
+          contractAddress: CONTRACT_ADDRESS
         }),
       });
 
@@ -243,15 +241,9 @@ const AssetHubDashboard = () => {
     }
   };
 
-  // Asset info fetch - Only allow if user owns the asset
+  // Asset info fetch
   const fetchAssetInfo = async () => {
     try {
-      // Check if user owns this asset first
-      if (!existingAssets.includes(Number(infoAssetId))) {
-        setContractTestResult("❌ You don't own this asset");
-        return;
-      }
-
       setLoading(true);
       
       const [assetResponse, balanceResponse, frozenResponse] = await Promise.all([
@@ -281,12 +273,12 @@ const AssetHubDashboard = () => {
     }
   };
 
-  // Load user assets when account changes
+  // Load assets when connected
   useEffect(() => {
-    if (connected && account) {
-      loadUserAssets();
+    if (connected) {
+      loadAllAssets();
     }
-  }, [connected, account]);
+  }, [connected]);
 
   if (!connected) {
     return (

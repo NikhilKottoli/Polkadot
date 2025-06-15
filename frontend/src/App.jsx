@@ -1,7 +1,6 @@
 import { Route, Routes, useNavigate } from "react-router";
 import { useEffect, lazy, Suspense } from "react";
 import HeroSection from "./pages/LandingPage/LandingPage";
-import DeployPolkaVM from "./pages/RustDeployer/DeployPolkaVM";
 
 // Lazy load components
 const AuthPage = lazy(() => import("./pages/AuthPage/AuthPage"));
@@ -22,17 +21,10 @@ const MonitoringWithDashboard = lazy(() =>
 );
 const CodeEditor = lazy(() => import("./pages/CodeEditor/CodeEditor"));
 
+// Loading component
 const LoadingFallback = () => (
   <div className="w-full h-screen flex items-center justify-center text-2xl text-pink-300 font-bold ">
-    <div className="relative rounded-full p-4 border-3 border-white/10 w-64 h-64">
-      {/* Rotating border loader */}
-      <div className="absolute top-0 left-0 w-full h-full rounded-full border-4 border-pink-300/50 border-t-transparent animate-spin"></div>
-      <img
-        src="/loader.gif"
-        alt="Loading"
-        className="rounded-full object-center object-cover"
-      />
-    </div>
+    Loading...
   </div>
 );
 
@@ -58,8 +50,6 @@ function App() {
           <Route path="/solidity-generator" element={<SolidityGenerator />} />
           <Route path="/compile" element={<ContractDeployer />} />
           <Route path="/mock" element={<MockXcmTrigger />} />
-          <Route path="/rust" element={<DeployPolkaVM />} />
-
           <Route path="*" element={<h1>404 Not Found</h1>} />
         </Routes>
       </Suspense>

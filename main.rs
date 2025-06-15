@@ -1,4 +1,3 @@
-
 #![no_main]
 #![no_std]
 
@@ -40,7 +39,7 @@ pub extern "C" fn call() {
     // Note for more complex input, sol! macro can be used to encod and decode input and output
     // https://docs.rs/alloy-core/0.8.24/alloy_core/sol_types/macro.sol.html
     let n = u32::from_be_bytes(input);
-    let result = optimised_contract(n);
+    let result = fibonacci(n);
 
     // pad the result to 32 byte
     let mut output = [0u8; 32];
@@ -48,6 +47,14 @@ pub extern "C" fn call() {
 
     // returning without calling this function leaves the output buffer empty
     api::return_value(ReturnFlags::empty(), &output);
-}fn optimised_contract(n: u32) -> u32 {
-    return n + 1;
+}
+
+fn fibonacci(n: u32) -> u32 {
+    if n == 0 {
+        0
+    } else if n == 1 {
+        1
+    } else {
+        fibonacci(n - 1) + fibonacci(n - 2)
+    }
 }

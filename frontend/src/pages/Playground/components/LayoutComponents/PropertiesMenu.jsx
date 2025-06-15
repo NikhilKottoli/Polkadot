@@ -24,7 +24,7 @@ const NodePalette = () => {
     clearSelection,
   } = useNodeOperations();
 
-  const { getNodes, getEdges, updateNode } = useBoardStore();
+  const { getNodes, getEdges, updateNodeProperties: storeUpdateNodeProperties } = useBoardStore();
 
   // Don't render if no node is selected
   if (!selectedNode) {
@@ -60,38 +60,12 @@ const NodePalette = () => {
       [key]: value,
     };
     
-    updateNodeProperties(selectedNode, updatedProperties);
+    // Use the store method directly for immediate updates
+    storeUpdateNodeProperties(selectedNode, updatedProperties);
   };
 
   const handleLabelChange = (newLabel) => {
     updateNodeLabel(selectedNode, newLabel);
-  };
-
-  const handleDescriptionChange = (newDescription) => {
-    // Update the entire node with the new description
-    const updatedNode = {
-      ...currentNode,
-      data: {
-        ...currentNode.data,
-        description: newDescription
-      }
-    };
-    
-    // Use updateNode if available, otherwise use updateNodeLabel approach
-    if (updateNode) {
-      updateNode(selectedNode, updatedNode);
-    } else {
-      // Alternative approach - update through the store's nodes array
-      const allNodes = getNodes();
-      const updatedNodes = allNodes.map(node => 
-        node.id === selectedNode ? updatedNode : node
-      );
-      
-      // Assuming there's a setNodes method in your store
-      if (useBoardStore.getState().setNodes) {
-        useBoardStore.getState().setNodes(updatedNodes);
-      }
-    }
   };
 
   const handleStatusChange = (newStatus) => {
@@ -237,7 +211,7 @@ const NodePalette = () => {
   return (
     <div className="w-[400px] h-[98%] p-4 absolute right-[-20px] top-[-18px] z-[200] bottom-[10px]">
       <div 
-        className="w-full h-full border border-white/10 bg-[#171717]/90 backdrop-blur-md shadow-lg flex flex-col overflow-y-scroll"
+        className="w-full h-full  border border-white/10 bg-[#171717]/90 backdrop-blur-md shadow-lg  flex flex-col overflow-y-scroll"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -281,7 +255,6 @@ const NodePalette = () => {
                 onClick={handleInputClick}
                 onFocus={handleInputFocus}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Enter node label"
               />
             </div>
 
@@ -291,12 +264,13 @@ const NodePalette = () => {
               </label>
               <textarea
                 value={currentNode.data.description || ""}
-                onChange={(e) => handleDescriptionChange(e.target.value)}
+                onChange={(e) =>
+                  handlePropertyChange("description", e.target.value)
+                }
                 onClick={handleInputClick}
                 onFocus={handleInputFocus}
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 rows={2}
-                placeholder="Enter node description"
               />
             </div>
 
