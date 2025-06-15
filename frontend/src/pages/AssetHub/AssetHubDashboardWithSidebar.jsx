@@ -13,9 +13,9 @@ export default function AssetHubDashboardWithSidebar() {
       }}
     >
       <AppSidebar variant="inset" />
-        <div className="flex flex-1 flex-col">
-          <AssetHubDashboard />
-        </div>
+      <div className="flex flex-1 flex-col w-full h-full">
+        <AssetHubDashboard />
+      </div>
     </SidebarProvider>
   );
 }

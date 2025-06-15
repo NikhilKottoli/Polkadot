@@ -2,8 +2,28 @@ import React, { useState, useEffect } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ethers } from "ethers";
-import "./AssetHubDashboard.css";
+import WalletProfile from "./WalletProfile";
 
 const ASSET_HUB_ABI = [
   "function createAsset(string name, string symbol, uint8 decimals) external returns (uint256)",
@@ -12,11 +32,10 @@ const ASSET_HUB_ABI = [
   "function balanceOf(uint256 assetId, address account) external view returns (uint256)",
   "function isFrozen(uint256 assetId, address account) external view returns (bool)",
   "function assetInfo(uint256 assetId) external view returns (string, string, uint8, uint256)",
-  "function assetCount() external view returns (uint256)"
+  "function assetCount() external view returns (uint256)",
 ];
 
 const CONTRACT_ADDRESS = "0xab6393232CbB3D3B38f6f1D33728f1de275E098b";
-
 
 const AssetHubDashboard = () => {
   const [provider, setProvider] = useState(null);
@@ -67,10 +86,14 @@ const AssetHubDashboard = () => {
       setAccount(address);
       setConnected(true);
 
-      const contractInstance = new ethers.Contract(CONTRACT_ADDRESS, ASSET_HUB_ABI, signer);
+      const contractInstance = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        ASSET_HUB_ABI,
+        signer
+      );
       setContract(contractInstance);
 
-      // Load existing assets
+      // Load existing assets - using 1-based indexing like the working code
       const count = await contractInstance.assetCount();
       console.log("Asset count:", count.toString());
       const assets = [];
@@ -79,7 +102,6 @@ const AssetHubDashboard = () => {
       }
       console.log("Existing assets:", assets);
       setExistingAssets(assets);
-
     } catch (error) {
       console.error("Connection error:", error);
       alert("Error connecting to wallet");
@@ -88,9 +110,10 @@ const AssetHubDashboard = () => {
       console.log("Finished connectWallet");
     }
   };
+
   const handleFreeze = async () => {
     if (!contract || !freezeAssetId || !freezeAccount) return;
-    
+
     try {
       setLoading(true);
       const tx = await contract.freeze(
@@ -99,7 +122,11 @@ const AssetHubDashboard = () => {
         freezeStatus
       );
       await tx.wait();
-      setContractTestResult(`✅ ${freezeStatus ? 'Froze' : 'Unfroze'} account ${truncateAddress(freezeAccount)} for Asset #${freezeAssetId}`);
+      setContractTestResult(
+        `✅ ${freezeStatus ? "Froze" : "Unfroze"} account ${truncateAddress(
+          freezeAccount
+        )} for Asset #${freezeAssetId}`
+      );
       // Clear inputs after successful operation
       setFreezeAssetId("");
       setFreezeAccount("");
@@ -122,7 +149,9 @@ const AssetHubDashboard = () => {
       const count = await contract.assetCount();
       setContractTestResult(`✅ Connected! assetCount = ${count.toString()}`);
     } catch (err) {
-      setContractTestResult(`❌ Connection failed: ${err.reason || err.message}`);
+      setContractTestResult(
+        `❌ Connection failed: ${err.reason || err.message}`
+      );
     }
   };
 
@@ -130,267 +159,445 @@ const AssetHubDashboard = () => {
     return addr ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : "";
   };
 
-  // Asset creation handler
+  // Asset creation handler - fixed to properly update asset list
   const handleCreateAsset = async () => {
     if (!contract) return;
     try {
       setLoading(true);
-      const tx = await contract.createAsset(assetName, assetSymbol, assetDecimals);
+      const tx = await contract.createAsset(
+        assetName,
+        assetSymbol,
+        assetDecimals
+      );
       await tx.wait();
-      alert("Asset created!");
-      // Refresh asset list
+
+      // Refresh asset list properly
       const count = await contract.assetCount();
-      setExistingAssets([...existingAssets, count]);
+      const newAssets = [];
+      for (let i = 1; i <= count; i++) {
+        newAssets.push(i);
+      }
+      setExistingAssets(newAssets);
+
+      // Clear form
+      setAssetName("");
+      setAssetSymbol("");
+      setAssetDecimals(18);
+
+      setContractTestResult(
+        `✅ Asset created successfully! Total assets: ${count}`
+      );
     } catch (e) {
-      alert("Error creating asset: " + e.message);
+      console.error("Error creating asset:", e);
+      setContractTestResult(`❌ Error creating asset: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mint handler
+  // Mint handler - simplified validation
   const handleMint = async () => {
     if (!contract || !existingAssets.includes(Number(mintAssetId))) {
-      alert("Invalid or non-existing asset ID");
+      setContractTestResult("❌ Invalid or non-existing asset ID");
       return;
     }
     try {
       setLoading(true);
       const tx = await contract.mint(mintAssetId, mintTo, mintAmount);
       await tx.wait();
-      alert("Minted!");
+      setContractTestResult(
+        `✅ Successfully minted ${mintAmount} tokens to ${truncateAddress(
+          mintTo
+        )}`
+      );
+
+      // Clear form
+      setMintAssetId("");
+      setMintTo("");
+      setMintAmount("");
     } catch (e) {
-      alert("Error minting: " + e.message);
+      console.error("Error minting:", e);
+      setContractTestResult(`❌ Error minting: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Asset info fetch
+  // Asset info fetch - simplified without complex BigInt conversions
   const fetchAssetInfo = async () => {
     try {
       if (!contract) {
-        alert("Contract not initialized");
+        setContractTestResult("❌ Contract not initialized");
         return;
       }
 
-      // Convert to BigInt first to avoid mixing number types
-      const assetId = BigInt(infoAssetId) - 1n; // Convert to BigInt and adjust for 0-based index
-      const totalAssets = await contract.assetCount();
-      const maxId = totalAssets - 1n; // Use BigInt subtraction
-      console.log(`assetId: ${assetId}, maxId: ${maxId}`);
-      if (assetId < 0n || assetId > maxId) {
-        alert(`Invalid asset ID. Valid IDs: 0-${maxId}`);
+      if (!existingAssets.includes(Number(infoAssetId))) {
+        setContractTestResult("❌ Invalid asset ID");
         return;
       }
 
       setLoading(true);
-      
-      // Pass assetId as BigInt to contract calls
+
+      // Use the asset ID directly as it's 1-based in the working code
+      const assetId = Number(infoAssetId);
+
       const [info, bal, isFrozen] = await Promise.all([
         contract.assetInfo(assetId),
         contract.balanceOf(assetId, account),
-        contract.isFrozen(assetId, account)
+        contract.isFrozen(assetId, account),
       ]);
 
       setAssetInfo({
         name: info[0],
         symbol: info[1],
         decimals: Number(info[2]),
-        totalSupply: info[3].toString()
+        totalSupply: info[3].toString(),
       });
-      
+
       setBalance(bal.toString());
       setFrozen(isFrozen);
-
+      setContractTestResult(`✅ Asset info fetched successfully`);
     } catch (e) {
+      console.error("Error fetching asset info:", e);
       setAssetInfo(null);
       setBalance("");
       setFrozen(null);
-      alert("Error fetching asset info: " + e.message);
+      setContractTestResult(`❌ Error fetching asset info: ${e.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-
   if (!connected) {
     return (
-      <div className="asset-hub-connect flex flex-col items-center justify-center h-screen">
-        <h1 className="asset-hub-title">Welcome to Asset Hub</h1>
-        <button 
-          className="asset-hub-btn" 
-          onClick={connectWallet}
-          disabled={loading}
-        >
-          {loading ? "Connecting..." : "Connect Metamask"}
-        </button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold">
+              Welcome to Asset Hub
+            </CardTitle>
+            <CardDescription>
+              Connect your wallet to get started
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center">
+            <Button
+              onClick={connectWallet}
+              disabled={loading}
+              size="lg"
+              className="w-full"
+            >
+              {loading ? "Connecting..." : "Connect MetaMask"}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="asset-hub-dashboard">
-      <div className="asset-hub-header">
-        <h1>Asset Hub Dashboard</h1>
-        <div className="asset-hub-account">
-          Connected: {truncateAddress(account)}
-        </div>
-        <button
-          className="asset-hub-btn"
-          style={{ marginLeft: 16 }}
-          onClick={testContractConnection}
-          disabled={!contract}
-        >
-          Test Contract Connection
-        </button>
-      </div>
-      {contractTestResult && (
-        <div style={{ margin: "12px 0", color: contractTestResult.startsWith("✅") ? "green" : "red" }}>
-          {contractTestResult}
-        </div>
-      )}
-
-      <div className="asset-hub-section">
-        <h2>Add New Asset</h2>
-        <input 
-          className="asset-hub-input" 
-          placeholder="Name" 
-          value={assetName} 
-          onChange={e => setAssetName(e.target.value)}
-          disabled={loading}
-        />
-        <input 
-          className="asset-hub-input" 
-          placeholder="Symbol" 
-          value={assetSymbol} 
-          onChange={e => setAssetSymbol(e.target.value)}
-          disabled={loading}
-        />
-        <input 
-          className="asset-hub-input" 
-          type="number" 
-          placeholder="Decimals" 
-          value={assetDecimals} 
-          onChange={e => setAssetDecimals(Number(e.target.value))}
-          disabled={loading}
-        />
-        <button 
-          className="asset-hub-btn" 
-          onClick={handleCreateAsset}
-          disabled={!assetName || !assetSymbol || loading}
-        >
-          {loading ? "Creating..." : "Create Asset"}
-        </button>
+    <div className="container m-6 bg-black rounded-2xl mt-4 flex pt-16 overflow-hidden h-screen">
+      {/* Sticky WalletProfile */}
+      <div className="sticky top-0 self-start pl-20">
+        <WalletProfile />
       </div>
 
-      <div className="asset-hub-section">
-        <h2>Mint Existing Asset</h2>
-        <select 
-          className="asset-hub-input"
-          value={mintAssetId}
-          onChange={e => setMintAssetId(e.target.value)}
-          disabled={loading || existingAssets.length === 0}
-        >
-          <option value="">Select Asset ID</option>
-          {existingAssets.map(id => (
-            <option key={id} value={id}>Asset #{id}</option>
-          ))}
-        </select>
-        <input 
-          className="asset-hub-input" 
-          placeholder="Recipient" 
-          value={mintTo} 
-          onChange={e => setMintTo(e.target.value)}
-          disabled={loading}
-        />
-        <input 
-          className="asset-hub-input" 
-          type="number" 
-          placeholder="Amount" 
-          value={mintAmount} 
-          onChange={e => setMintAmount(e.target.value)}
-          disabled={loading}
-        />
-        <button 
-          className="asset-hub-btn" 
-          onClick={handleMint}
-          disabled={!mintAssetId || !mintTo || !mintAmount || loading}
-        >
-          {loading ? "Minting..." : "Mint"}
-        </button>
-      </div>
+      <div className="w-full max-w-[900px] h-full overflow-y-auto space-y-6 mx-auto mb-32">
+        {/* Header */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-2xl">Asset Hub Dashboard</CardTitle>
+                <CardDescription>
+                  Connected:{" "}
+                  <Badge variant="secondary">{truncateAddress(account)}</Badge>
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                onClick={testContractConnection}
+                disabled={!contract}
+              >
+                Test Contract
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
 
-      <div className="asset-hub-section">
-        <h2>Freeze/Unfreeze Account</h2>
-        <select
-          className="asset-hub-input"
-          value={freezeAssetId}
-          onChange={e => setFreezeAssetId(e.target.value)}
-          disabled={loading || existingAssets.length === 0}
-        >
-          <option value="">Select Asset ID</option>
-          {existingAssets.map(id => (
-            <option key={id} value={id}>Asset #{id}</option>
-          ))}
-        </select>
-        <input
-          className="asset-hub-input"
-          placeholder="Account Address"
-          value={freezeAccount}
-          onChange={e => setFreezeAccount(e.target.value)}
-          disabled={loading}
-        />
-        <div className="flex flex-col">
-        <label className="asset-hub-checkbox">
-          <input
-            type="checkbox"
-            checked={freezeStatus}
-            onChange={e => setFreezeStatus(e.target.checked)}
-            disabled={loading}
-          />
-          Freeze Account
-        </label>
-        <button
-          className="asset-hub-btn"
-          onClick={handleFreeze}
-          disabled={!freezeAssetId || !freezeAccount || loading}
-        >
-          {loading ? "Updating..." : "Set Freeze Status"}
-        </button>
-        </div>
-      </div>
-      <div className="asset-hub-section">
-        <h2>Asset Information</h2>
-        <select 
-          className="asset-hub-input"
-          value={infoAssetId}
-          onChange={e => setInfoAssetId(e.target.value)}
-          disabled={loading || existingAssets.length === 0}
-        >
-          <option value="">Select Asset ID</option>
-          {existingAssets.map(id => (
-            <option key={id} value={id}>Asset #{id}</option>
-          ))}
-        </select>
-        <button 
-          className="asset-hub-btn" 
-          onClick={fetchAssetInfo}
-          disabled={!infoAssetId || loading}
-        >
-          {loading ? "Fetching..." : "Get Info"}
-        </button>
-        
-        {assetInfo && (
-          <div className="asset-hub-info">
-            <p><b>Name:</b> {assetInfo.name}</p>
-            <p><b>Symbol:</b> {assetInfo.symbol}</p>
-            <p><b>Decimals:</b> {assetInfo.decimals}</p>
-            <p><b>Total Supply:</b> {assetInfo.totalSupply}</p>
-            <p><b>Your Balance:</b> {balance}</p>
-            <p><b>Your Frozen Status:</b> {frozen ? "❄️ Frozen" : "✅ Active"}</p>
-          </div>
+        {/* Contract Test Result */}
+        {contractTestResult && (
+          <Alert
+            variant={
+              contractTestResult.startsWith("✅") ? "default" : "destructive"
+            }
+          >
+            <AlertDescription>{contractTestResult}</AlertDescription>
+          </Alert>
         )}
+
+        {/* Create Asset Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Asset</CardTitle>
+            <CardDescription>
+              Deploy a new token to the Asset Hub
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Asset Name</label>
+                <Input
+                  placeholder="e.g., My Token"
+                  value={assetName}
+                  onChange={(e) => setAssetName(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Symbol</label>
+                <Input
+                  placeholder="e.g., MTK"
+                  value={assetSymbol}
+                  onChange={(e) => setAssetSymbol(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Decimals</label>
+              <Input
+                type="number"
+                placeholder="18"
+                value={assetDecimals}
+                onChange={(e) => setAssetDecimals(Number(e.target.value))}
+                disabled={loading}
+              />
+            </div>
+            <Button
+              onClick={handleCreateAsset}
+              disabled={!assetName || !assetSymbol || loading}
+              className="w-full"
+            >
+              {loading ? "Creating..." : "Create Asset"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Mint Asset Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mint Tokens</CardTitle>
+            <CardDescription>Mint tokens to any address</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Asset</label>
+              <Select
+                value={mintAssetId}
+                onValueChange={setMintAssetId}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an asset" />
+                </SelectTrigger>
+                <SelectContent>
+                  {existingAssets.map((id) => (
+                    <SelectItem key={id} value={id.toString()}>
+                      Asset #{id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Recipient Address</label>
+              <Input
+                placeholder="0x..."
+                value={mintTo}
+                onChange={(e) => setMintTo(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Amount</label>
+              <Input
+                type="number"
+                placeholder="1000"
+                value={mintAmount}
+                onChange={(e) => setMintAmount(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <Button
+              onClick={handleMint}
+              disabled={!mintAssetId || !mintTo || !mintAmount || loading}
+              className="w-full"
+            >
+              {loading ? "Minting..." : "Mint Tokens"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Freeze/Unfreeze Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Account Management</CardTitle>
+            <CardDescription>
+              Freeze or unfreeze accounts for specific assets
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Asset</label>
+                <Select
+                  value={freezeAssetId}
+                  onValueChange={setFreezeAssetId}
+                  disabled={loading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an asset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingAssets.map((id) => (
+                      <SelectItem key={id} value={id.toString()}>
+                        Asset #{id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Account Address</label>
+                <Input
+                  placeholder="0x..."
+                  value={freezeAccount}
+                  onChange={(e) => setFreezeAccount(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="freeze-status"
+                checked={freezeStatus}
+                onCheckedChange={setFreezeStatus}
+                disabled={loading}
+              />
+              <label htmlFor="freeze-status" className="text-sm font-medium">
+                Freeze Account
+              </label>
+            </div>
+            <Button
+              onClick={handleFreeze}
+              disabled={!freezeAssetId || !freezeAccount || loading}
+              variant={freezeStatus ? "destructive" : "default"}
+              className="w-full"
+            >
+              {loading
+                ? "Updating..."
+                : freezeStatus
+                ? "Freeze Account"
+                : "Unfreeze Account"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Asset Information Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Asset Information</CardTitle>
+            <CardDescription>
+              View detailed information about your assets
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <div className="flex-1 space-y-2">
+                <label className="text-sm font-medium">Asset</label>
+                <Select
+                  value={infoAssetId}
+                  onValueChange={setInfoAssetId}
+                  disabled={loading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an asset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingAssets.map((id) => (
+                      <SelectItem key={id} value={id.toString()}>
+                        Asset #{id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                onClick={fetchAssetInfo}
+                disabled={!infoAssetId || loading}
+                className="self-end"
+              >
+                {loading ? "Fetching..." : "Get Info"}
+              </Button>
+            </div>
+
+            {assetInfo && (
+              <>
+                <Separator />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Name:
+                      </span>
+                      <span className="text-sm font-mono">
+                        {assetInfo.name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Symbol:
+                      </span>
+                      <Badge variant="outline">{assetInfo.symbol}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Decimals:
+                      </span>
+                      <span className="text-sm">{assetInfo.decimals}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Total Supply:
+                      </span>
+                      <span className="text-sm font-mono">
+                        {assetInfo.totalSupply}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Your Balance:
+                      </span>
+                      <span className="text-sm font-mono">{balance}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        Status:
+                      </span>
+                      <Badge variant={frozen ? "destructive" : "default"}>
+                        {frozen ? "❄️ Frozen" : "✅ Active"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
