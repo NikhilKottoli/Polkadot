@@ -31,7 +31,8 @@ const AVAILABLE_NODE_TYPES = {
     "dao_voting",
     "send_webhook",
     "send_email",
-    "send_telegram"
+    "send_telegram",
+    "xcm_message"
   ],
   // Logic nodes
   logic: [
@@ -305,8 +306,8 @@ CRITICAL REQUIREMENTS:
 4. Implement all functionality directly within the contract for self-containment
 5. DO NOT use markdown formatting - return ONLY raw Solidity code
 6. Follow best practices for security and include comprehensive comments
-7. Add proper error handling with descriptive revert messages
-8. ALWAYS include the SendTelegram event for workflow notifications: event SendTelegram(string message, address indexed user);
+7. ALWAYS include the SendTelegram event for workflow notifications: event SendTelegram(string message, address indexed user);
+8. ALWAYS include the XCMSent event for XCM notifications: event XCMSent(string targetChain, bytes xcmCallData);
 9. MANDATORY: Include executeWorkflow function that performs actual operations and emits detailed results
 
 FLOWCHART-BASED IMPLEMENTATION REQUIREMENTS:
@@ -323,6 +324,8 @@ NODE-SPECIFIC IMPLEMENTATION RULES:
 - BRIDGE NODES: Handle cross-chain operations and emit transaction details
 - WALLET NODES: Generate addresses, sign transactions and emit wallet info
 - AI NODES: Process data and emit AI operation results
+- XCM NODES: For "xcm_message" nodes, generate a placeholder for the XCM call. The real implementation will be provided by the PolkaVM environment. Emit an event with the XCM details.
+  - Example: \`emit XCMSent(targetChain, xcmCallData);\`, where \`targetChain\` and \`xcmCallData\` are derived from the node's properties.
 
 TELEGRAM EMISSION PATTERN:
 - Each node execution = one SendTelegram event
@@ -941,6 +944,212 @@ contract ${contractName} {
         success: false,
         error: error.message,
         contractCode: fallbackContract
+    };
+  }
+};
+
+export const generateRustFromSolidityFunction = async (solidityFunction) => {
+  try {
+    console.log('🤖 [AIService] Starting Rust generation from Solidity function with Gemini');
+
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured.');
+    }
+
+    const userPrompt = `You are an expert Rust developer specializing in PolkaVM smart contracts. Convert the following Solidity function into a complete, secure, and well-documented Rust smart contract that can be deployed on PolkaVM.
+
+Solidity Function:
+\`\`\`solidity
+${solidityFunction}
+\`\`\`
+
+CRITICAL REQUIREMENTS:
+1.  Create a complete Rust smart contract, not just the function body.
+2.  Use the \`#![no_std]\` and \`#![no_main]\` attributes.
+3.  Include the necessary PolkaVM boilerplate, including \`deploy\` and \`call\` functions.
+4.  The \`call\` function should handle the routing to the converted function.
+5.  Use appropriate Rust data types that correspond to the Solidity types.
+6.  Implement proper error handling.
+7.  Return ONLY raw Rust code, no markdown formatting.
+
+Example Output:
+\`\`\`rust
+#![no_main]
+#![no_std]
+
+use uapi::{HostFn, HostFnImpl as api, ReturnFlags};
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    // Safety: The unimp instruction is guaranteed to trap
+    unsafe {
+        core::arch::asm!("unimp");
+        core::hint::unreachable_unchecked();
+    }
+}
+
+/// This is the constructor which is called once per contract.
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn deploy() {}
+
+/// This is the regular entry point when the contract is called.
+#[no_mangle]
+#[polkavm_derive::polkavm_export]
+pub extern "C" fn call() {
+    // Your implementation here
+}
+
+// Your converted function here
+\`\`\`
+`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: userPrompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 4096,
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [AIService] Gemini API error:', errorText);
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      console.error('❌ [AIService] Invalid response structure:', data);
+      throw new Error('Invalid response from Gemini API');
+    }
+
+    let rustCode = data.candidates[0].content.parts[0].text.trim();
+    rustCode = cleanAIGeneratedCode(rustCode);
+
+    console.log('✅ [AIService] Successfully generated Rust from Solidity with Gemini.');
+
+    return {
+      success: true,
+      rustCode: rustCode
+    };
+
+  } catch (error) {
+    console.error('❌ [AIService] AI Rust generation from Solidity failed:', error);
+    
+    return {
+        success: false,
+        error: error.message,
+        rustCode: `// Failed to generate Rust code: ${error.message}`
+    };
+  }
+};
+
+export const generateSolidityWrapper = async (rustContracts, contractName) => {
+  try {
+    console.log('🤖 [AIService] Starting Solidity wrapper generation with Gemini');
+
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured.');
+    }
+
+    const contractInterfaces = rustContracts.map(c => `
+interface I${c.name} {
+  function ${c.functionSignature} external;
+}
+    `).join('');
+
+    const contractInstances = rustContracts.map(c => `
+  I${c.name} public ${c.name.toLowerCase()} = I${c.name}(${c.address});
+    `).join('');
+
+    const userPrompt = `You are an expert Solidity smart contract developer. Create a wrapper contract named ${contractName} that interacts with the following deployed Rust contracts.
+
+Rust Contracts:
+\`\`\`
+${JSON.stringify(rustContracts, null, 2)}
+\`\`\`
+
+CRITICAL REQUIREMENTS:
+1.  Create a complete Solidity smart contract that can be deployed.
+2.  For each Rust contract, define an interface and create an instance of it using its deployed address.
+3.  Create a public function for each function in the Rust contracts that calls the corresponding function in the Rust contract.
+4.  Return ONLY raw Solidity code, no markdown formatting.
+
+Example Output:
+\`\`\`solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+${contractInterfaces}
+
+contract ${contractName} {
+  ${contractInstances}
+
+  // Wrapper functions here
+}
+\`\`\`
+`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: userPrompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 4096,
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [AIService] Gemini API error:', errorText);
+      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+      console.error('❌ [AIService] Invalid response structure:', data);
+      throw new Error('Invalid response from Gemini API');
+    }
+
+    let contractCode = data.candidates[0].content.parts[0].text.trim();
+    contractCode = cleanAIGeneratedCode(contractCode);
+
+    console.log('✅ [AIService] Successfully generated Solidity wrapper with Gemini.');
+
+    return {
+      success: true,
+      contractCode: contractCode
+    };
+
+  } catch (error) {
+    console.error('❌ [AIService] AI Solidity wrapper generation failed:', error);
+    
+    return {
+        success: false,
+        error: error.message,
+        contractCode: `// Failed to generate Solidity wrapper: ${error.message}`
     };
   }
 }; 

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
   Sparkle,
   Code,
@@ -21,7 +21,10 @@ import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import {
   generateSolidityContract,
   SOLIDITY_SAMPLE_PROMPTS,
+  generateRustFromSolidityFunction,
+  generateSolidityWrapper,
 } from "../../utils/aiService";
+import { estimateContractGas } from "../../services/gasEstimationService";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import LoadingAnimation from "../../components/LoadingAnimation";
@@ -29,6 +32,7 @@ import LoadingAnimation from "../../components/LoadingAnimation";
 export default function SolidityGenerator() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { projectId } = useParams();
 
   // Back navigation handler
   const handleGoBack = () => {
@@ -56,6 +60,26 @@ contract MyContract {
     // Contract code will be generated here
 }`);
 
+  const [isCodeLoaded, setIsCodeLoaded] = useState(false);
+
+  // Load code from local storage on component mount
+  useEffect(() => {
+    if (projectId) {
+      const savedCode = localStorage.getItem(`project_${projectId}_code`);
+      if (savedCode) {
+        setCode(savedCode);
+        setIsCodeLoaded(true);
+      }
+    }
+  }, [projectId]);
+
+  // Save code to local storage whenever it changes
+  useEffect(() => {
+    if (projectId) {
+      localStorage.setItem(`project_${projectId}_code`, code);
+    }
+  }, [code, projectId]);
+
   // Scroll synchronization state
   const [scrollPosition, setScrollPosition] = useState({ top: 0, left: 0 });
 
@@ -65,6 +89,7 @@ contract MyContract {
   const [deployed, setDeployed] = useState({});
   const [loading, setLoading] = useState({ compile: false, deploy: false });
   const [compileError, setCompileError] = useState("");
+  const [gasEstimation, setGasEstimation] = useState(null);
 
   // Scroll synchronization handler
   const handleScroll = (e) => {
@@ -96,6 +121,17 @@ contract MyContract {
         console.log("✅ [SolidityGen] Contract generated successfully");
         setCode(result.contractCode);
         setPrompt("");
+
+        // Estimate gas after generating code
+        const contractNameMatch = result.contractCode.match(/contract\s+(\w+)/);
+        const contractName = contractNameMatch ? contractNameMatch[1] : 'MyContract';
+        const gasResult = await estimateContractGas(result.contractCode, contractName);
+        if (gasResult.success) {
+          setGasEstimation(gasResult.estimation);
+        } else {
+          console.warn("⚠️ [GasEst] Gas estimation failed:", gasResult.error);
+        }
+
       } else {
         console.warn("⚠️ [SolidityGen] Generation failed, using fallback");
         setGenerationError(result.error);
@@ -106,6 +142,7 @@ contract MyContract {
       setGenerationError("Failed to generate contract. Please try again.");
     } finally {
       setIsGenerating(false);
+      setIsCodeLoaded(true);
     }
   };
 
@@ -189,6 +226,71 @@ contract MyContract {
     setLoading({ ...loading, deploy: false });
   };
 
+  const handleConvertToRust = async () => {
+    if (!gasEstimation || gasEstimation.highGasFunctions.length === 0) {
+      return;
+    }
+
+    setLoading({ ...loading, compile: true });
+    const deployedRustContracts = [];
+
+    try {
+      for (const func of gasEstimation.highGasFunctions) {
+        // 1. Generate Rust code
+        const rustResult = await generateRustFromSolidityFunction(func.implementation);
+        if (!rustResult.success) {
+          throw new Error(`Failed to generate Rust code for ${func.name}`);
+        }
+
+        // 2. Compile Rust code
+        const compileResult = await fetch("http://localhost:3000/api/compile-rust", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: rustResult.rustCode }),
+        }).then(res => res.json());
+
+        if (!compileResult.success) {
+          throw new Error(`Failed to compile Rust code for ${func.name}`);
+        }
+
+        // 3. Deploy Rust code
+        const deployResult = await fetch("http://localhost:3000/api/deploy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bytecode: compileResult.bytecode, abi: compileResult.abi, contractName: func.name }),
+        }).then(res => res.json());
+
+        if (!deployResult.success) {
+          throw new Error(`Failed to deploy Rust code for ${func.name}`);
+        }
+
+        deployedRustContracts.push({
+          name: func.name,
+          address: deployResult.contractAddress,
+          functionSignature: func.signature,
+        });
+      }
+
+      // 4. Generate Solidity wrapper
+      const contractNameMatch = code.match(/contract\s+(\w+)/);
+      const baseContractName = contractNameMatch ? contractNameMatch[1] : 'MyContract';
+      const wrapperResult = await generateSolidityWrapper(deployedRustContracts, `${baseContractName}Wrapper`);
+      
+      if (wrapperResult.success) {
+        setCode(wrapperResult.contractCode);
+        setGasEstimation(null); // Clear gas estimation for the new contract
+      } else {
+        throw new Error('Failed to generate Solidity wrapper contract');
+      }
+
+    } catch (err) {
+      console.error("❌ [RustConv] Rust conversion failed:", err);
+      setCompileError(`Rust conversion failed: ${err.message}`);
+    } finally {
+      setLoading({ ...loading, compile: false });
+    }
+  };
+
   // Utility Functions
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -235,6 +337,30 @@ contract MyContract {
                 Generate, edit, compile, and deploy smart contracts with AI
                 assistance
               </p>
+              {isCodeLoaded && (
+                <div className="flex gap-4 mt-4">
+                  <motion.button
+                    onClick={() => {
+                      // Logic to view code (already visible)
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 h-12 bg-[#2a2a2a] hover:bg-[#3a3a3a] rounded-full transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Code size={20} />
+                    <span>View Code</span>
+                  </motion.button>
+                  <motion.button
+                    onClick={handleGenerateContract}
+                    className="flex items-center gap-2 px-4 py-2 h-12 bg-purple-600 hover:bg-purple-700 rounded-full transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Sparkle size={20} />
+                    <span>Generate Again</span>
+                  </motion.button>
+                </div>
+              )}
             </motion.div>
           </div>
 
@@ -248,75 +374,86 @@ contract MyContract {
               <div className="flex items-center gap-3 mb-6">
                 <Sparkle className="text-purple-400" size={24} />
                 <h2 className="text-2xl font-semibold text-white">
-                  Generate Contract
+                  AI-Powered Generation
                 </h2>
               </div>
-
               {/* Prompt Input */}
-              <div className="mb-6">
+              <div className="relative">
                 <Textarea
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Describe the smart contract you want to generate..."
-                  disabled={isGenerating}
-                  className="w-full h-32 bg-[#1f1f1f] border border-[#3a3a3a] rounded-lg p-4 text-gray-100 placeholder-gray-500 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 resize-none transition-all"
+                  placeholder="Describe your smart contract logic here... (e.g., 'An ERC-20 token with a fixed supply')"
+                  className="w-full h-28 p-4 bg-[#1a1a1a] border-[#3a3a3a] rounded-xl focus:ring-purple-500"
                 />
-              </div>
-
-              {/* Sample Prompts */}
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-300 mb-3">
-                  Quick Ideas:
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {SOLIDITY_SAMPLE_PROMPTS.slice(0, 4).map(
-                    (samplePrompt, index) => (
-                      <motion.button
-                        key={index}
-                        onClick={() => handleSamplePrompt(samplePrompt)}
-                        disabled={isGenerating}
-                        className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm text-purple-300 transition-all disabled:opacity-50"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        {samplePrompt}
-                      </motion.button>
-                    )
-                  )}
-                </div>
-              </div>
-
-              {/* Generate Button */}
-              <div className="flex items-center gap-4">
                 <motion.button
                   onClick={handleGenerateContract}
-                  disabled={!prompt.trim() || isGenerating}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                    !prompt.trim() || isGenerating
-                      ? "bg-[#3a3a3a] cursor-not-allowed opacity-50"
-                      : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-purple-500/25"
-                  }`}
-                  whileHover={!isGenerating ? { scale: 1.02 } : {}}
-                  whileTap={!isGenerating ? { scale: 0.98 } : {}}
+                  disabled={isGenerating}
+                  className="absolute bottom-4 right-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg disabled:opacity-50"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {isGenerating ? (
-                    <Loader2 className="animate-spin" size={20} />
+                    <Loader2 className="animate-spin" />
                   ) : (
-                    <Sparkle size={20} />
+                    "Generate"
                   )}
-                  {isGenerating ? "Generating..." : "Generate Contract"}
                 </motion.button>
+              </div>
 
-                {generationError && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-2 text-red-400 text-sm"
+              {/* Gas Estimation Display */}
+              {gasEstimation && (
+                <div className="mt-4 p-4 bg-[#1a1a1a] border-[#3a3a3a] rounded-xl">
+                  <h3 className="text-lg font-semibold text-white">Gas Estimation</h3>
+                  <p>Deployment Cost: {gasEstimation.deploymentCost} gas</p>
+                  <p>Average Function Cost: {gasEstimation.averageFunctionCost} gas</p>
+                  <ul>
+                    {gasEstimation.highGasFunctions.map(func => (
+                      <li key={func.name} className="text-yellow-400">
+                        High gas function: {func.name} ({func.gas} gas)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Rust Conversion Prompt */}
+              {gasEstimation && gasEstimation.highGasFunctions.length > 0 && (
+                <div className="mt-4 p-4 bg-[#1a1a1a] border-[#3a3a3a] rounded-xl">
+                  <h3 className="text-lg font-semibold text-white">Optimize with Rust</h3>
+                  <p className="text-gray-400">The following functions are using a lot of gas. Convert them to Rust for better performance.</p>
+                  <ul className="my-2">
+                    {gasEstimation.highGasFunctions.map(func => (
+                      <li key={func.name} className="text-yellow-400">
+                        {func.name} ({func.gas} gas)
+                      </li>
+                    ))}
+                  </ul>
+                  <motion.button
+                    onClick={handleConvertToRust}
+                    className="flex items-center gap-2 px-4 py-2 mt-2 bg-blue-600 hover:bg-blue-700 rounded-lg"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <AlertCircle size={16} />
-                    <span>{generationError}</span>
-                  </motion.div>
-                )}
+                    <Rocket size={20} />
+                    <span>Convert to Rust</span>
+                  </motion.button>
+                </div>
+              )}
+
+              {/* Sample Prompts */}
+              <div className="flex flex-wrap gap-2 mt-4">
+                {SOLIDITY_SAMPLE_PROMPTS.map((p, i) => (
+                  <motion.button
+                    key={i}
+                    onClick={() => handleSamplePrompt(p)}
+                    disabled={isGenerating}
+                    className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 rounded-lg text-sm text-purple-300 transition-all disabled:opacity-50"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {p}
+                  </motion.button>
+                ))}
               </div>
             </Card>
           </motion.div>

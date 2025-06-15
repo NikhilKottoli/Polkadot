@@ -5,10 +5,20 @@ export const RustCompilationService = {
   // Compile Rust contract using cargo and polkatool
   async compileRustContract(rustCode, contractName) {
     try {
-      console.log(`🦀 [RustCompilationService] Compiling Rust contract: ${contractName}`);
+      // Validate inputs
+      if (!contractName || contractName.trim() === '') {
+        throw new Error('Contract name is required and cannot be empty');
+      }
+      
+      if (!rustCode || rustCode.trim() === '') {
+        throw new Error('Rust code is required and cannot be empty');
+      }
+      
+      const sanitizedName = contractName.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+      console.log(`🦀 [RustCompilationService] Compiling Rust contract: ${sanitizedName}`);
       
       // Step 1: Create temporary project directory
-      const projectPath = await this.createRustProject(rustCode, contractName);
+      const projectPath = await this.createRustProject(rustCode, sanitizedName);
       
       // Step 2: Build with cargo
       const buildResult = await this.buildWithCargo(projectPath);
@@ -17,7 +27,7 @@ export const RustCompilationService = {
       }
       
       // Step 3: Link with polkatool
-      const linkResult = await this.linkWithPolkatool(projectPath, contractName);
+      const linkResult = await this.linkWithPolkatool(projectPath, sanitizedName);
       if (!linkResult.success) {
         return linkResult;
       }
@@ -78,15 +88,15 @@ path = "src/main.rs"`;
     const rustToolchain = `[toolchain]
 channel = "nightly-2024-01-01"
 components = ["rust-src"]
-targets = ["riscv32ema-unknown-none-elf"]`;
+targets = ["riscv32im-unknown-none-elf"]`;
 
     await this.writeFile(`${projectPath}/rust-toolchain.toml`, rustToolchain);
     
     // Create .cargo/config.toml
     const cargoConfig = `[build]
-target = "riscv32ema-unknown-none-elf"
+target = "riscv32im-unknown-none-elf"
 
-[target.riscv32ema-unknown-none-elf]
+[target.riscv32im-unknown-none-elf]
 runner = "polkatool run"`;
 
     await this.writeFile(`${projectPath}/.cargo/config.toml`, cargoConfig);
@@ -94,10 +104,10 @@ runner = "polkatool run"`;
     // Create Makefile (Windows compatible)
     const makefile = `all: contract.polkavm
 
-contract.polkavm: target/riscv32ema-unknown-none-elf/release/${contractName}
+contract.polkavm: target/riscv32im-unknown-none-elf/release/${contractName}
 \tpolkatool link $< -o $@
 
-target/riscv32ema-unknown-none-elf/release/${contractName}:
+target/riscv32im-unknown-none-elf/release/${contractName}:
 \tcargo build --release
 
 clean:
@@ -141,7 +151,7 @@ clean:
     try {
       console.log(`🔗 [RustCompilationService] Linking with polkatool...`);
       
-      const elfPath = `target/riscv32ema-unknown-none-elf/release/${contractName}`;
+      const elfPath = `target/riscv32im-unknown-none-elf/release/${contractName}`;
       // Windows compatible command
       const result = await this.executeCommand(`Set-Location "${projectPath}"; polkatool link ${elfPath} -o contract.polkavm`);
       

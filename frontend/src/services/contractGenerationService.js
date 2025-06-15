@@ -1,5 +1,5 @@
 import { generateSolidityFromFlowchart } from '../utils/solidityGenerator';
-import { GasEstimationService } from './gasEstimationService';
+import { GasEstimationService, identifyHighGasFunctions } from './gasEstimationService';
 import { GeminiService } from './geminiService';
 
 export const ContractGenerationService = {
@@ -37,7 +37,7 @@ export const ContractGenerationService = {
     const gasEstimation = await GasEstimationService.estimateContractGas(solidityCode, contractName);
     
     // Step 3: Identify high gas functions
-    const highGasFunctions = GasEstimationService.identifyHighGasFunctions(gasEstimation);
+    const highGasFunctions = identifyHighGasFunctions(gasEstimation);
     
     console.log("🔍 [ContractGenerationService] High gas functions detected:", highGasFunctions);
     console.log("⛽ [ContractGenerationService] REAL gas estimation results:", gasEstimation);

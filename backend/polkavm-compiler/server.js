@@ -7,6 +7,9 @@ const ethers = require('ethers');
 const { sendTelegramMessage } = require('../polkaflow-telegram-bot');
 const { compile } = require('@parity/resolc'); // Changed import
 const { pollForEvents, setupEventMonitoring } = require('./utils');
+const fs = require('fs').promises;
+const { exec } = require('child_process');
+const path = require('path');
 
 const app = express();
 app.use(cors());
@@ -82,6 +85,57 @@ app.post('/api/compile', async (req, res) => {
       // Add debug info for frontend
       _debug: err.stack
     });
+  }
+});
+
+app.post('/api/compile-rust', async (req, res) => {
+  const { code } = req.body;
+  console.log('Received /api/compile-rust request');
+
+  const filePath = path.join(__dirname, 'temp_contract.rs');
+  const outputPath = path.join(__dirname, 'temp_contract.polkavm');
+
+  try {
+    // Write the Rust code to a temporary file
+    await fs.writeFile(filePath, code);
+
+    // Compile the Rust code to a PolkaVM binary
+    const compileCommand = `rustc +nightly --target=riscv32imc-unknown-none-elf -O --crate-type=cdylib -o ${outputPath} ${filePath}`;
+    
+    await new Promise((resolve, reject) => {
+      exec(compileCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Rust compilation error: ${stderr}`);
+          reject(new Error(`Rust compilation failed: ${stderr}`));
+          return;
+        }
+        resolve(stdout);
+      });
+    });
+
+    // Read the compiled binary
+    const bytecode = await fs.readFile(outputPath, 'hex');
+
+    // Placeholder for ABI extraction from Rust code
+    const abi = []; // TODO: Implement ABI extraction for Rust
+
+    res.json({ success: true, bytecode: `0x${bytecode}`, abi });
+
+  } catch (err) {
+    console.error('Rust compilation error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      _debug: err.stack
+    });
+  } finally {
+    // Clean up temporary files
+    try {
+      await fs.unlink(filePath);
+      await fs.unlink(outputPath);
+    } catch (cleanupErr) {
+      console.error('Error cleaning up temporary files:', cleanupErr);
+    }
   }
 });
 

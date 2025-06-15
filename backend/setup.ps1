@@ -28,7 +28,7 @@ if (!(Get-Command "rustc" -ErrorAction SilentlyContinue)) {
 Write-Host "Installing nightly toolchain..." -ForegroundColor Cyan
 rustup toolchain install nightly-2024-01-01
 rustup component add rust-src --toolchain nightly-2024-01-01
-rustup target add riscv32ema-unknown-none-elf --toolchain nightly-2024-01-01
+rustup target add riscv32im-unknown-none-elf --toolchain nightly-2024-01-01
 
 Write-Host "Installing polkatool..." -ForegroundColor Yellow
 # Install polkatool for PolkaVM compilation
@@ -110,7 +110,7 @@ Write-Host "3. Restart your terminal or run: `$env:PATH += `";`$env:USERPROFILE\
 Write-Host ""
 Write-Host "Available commands:" -ForegroundColor Yellow
 Write-Host "- cargo build --release (build Rust contract)"
-Write-Host "- polkatool link target\riscv32ema-unknown-none-elf\release\contract -o contract.polkavm"
+Write-Host "- polkatool link target\riscv32im-unknown-none-elf\release\contract -o contract.polkavm"
 Write-Host "- cast send --account dev-account --create `"hex_data`" (deploy)"
 Write-Host "- cast estimate address `"function_signature`" params (estimate gas)"
 Write-Host "- cast call address `"function_signature`" params (call function)"

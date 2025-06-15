@@ -294,6 +294,64 @@ export const NODE_TYPES = {
       },
     },
 
+    xcm_message: {
+      id: "xcm_message",
+      label: "XCM Message",
+      icon: "✈️",
+      category: "action",
+      subcategory: "cross_chain",
+      description: "Send a cross-chain message (XCM) to another parachain",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "xcm_result",
+            label: "XCM Result",
+            type: "tx_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        target_chain: {
+          type: "string",
+          default: "",
+          label: "Target Chain/Parachain",
+        },
+        action_type: {
+          type: "select",
+          options: ["transfer", "remote_call"],
+          default: "transfer",
+          label: "Action Type",
+        },
+        asset: { type: "string", default: "DOT", label: "Asset" },
+        amount: { type: "number", default: 0, label: "Amount" },
+        destination_address: {
+          type: "string",
+          default: "",
+          label: "Destination Address",
+        },
+        custom_instructions: {
+          type: "textarea",
+          default: "",
+          label: "Custom Instructions (optional)",
+        },
+        fee_estimation: {
+          type: "string",
+          default: "auto",
+          label: "Fee Estimation",
+          readonly: true,
+        },
+      },
+    },
+
     mint_asset: {
       id: "mint_asset",
       label: "Mint Asset",
@@ -591,6 +649,41 @@ export const NODE_TYPES = {
           label: "Subject",
         },
         template: { type: "text", default: "", label: "Email Template" },
+      },
+    },
+
+    // Liquidity & Staking Actions
+    provide_liquidity: {
+      id: "provide_liquidity",
+      label: "Provide Liquidity",
+      icon: "💸",
+      category: "action",
+      subcategory: "liquidity_staking",
+      description: "Provide liquidity to a liquidity pool",
+      handles: {
+        inputs: [
+          {
+            id: "trigger_input",
+            label: "Trigger",
+            type: "event",
+            position: "left",
+          },
+        ],
+        outputs: [
+          {
+            id: "liquidity_provided",
+            label: "Liquidity Provided",
+            type: "liquidity_result",
+            position: "right",
+          },
+        ],
+      },
+      properties: {
+        pool_id: { type: "string", default: "", label: "Pool ID" },
+        asset_a: { type: "string", default: "DOT", label: "Asset A" },
+        asset_b: { type: "string", default: "DOT", label: "Asset B" },
+        amount_a: { type: "number", default: 0, label: "Amount A" },
+        amount_b: { type: "number", default: 0, label: "Amount B" },
       },
     },
   },

@@ -22,10 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import useBoardStore from "../../../../store/store";
-import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerator";
 import { compileContract, deployContract } from "../../../../utils/contractService";
-import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
-import { estimateContractGas, identifyHighGasFunctions } from "./gasEstimation";
 import { ContractGenerationService } from "../../../../services/contractGenerationService";
 
 
@@ -113,7 +110,10 @@ export default function TopBar({walletAddress,setWalletAddress}) {
 
 const handleGenerate = async (type) => {
     setShowGenerationChoice(false);
-    if (!currentProject) return;
+    if (!currentProject) {
+      alert("Please select or create a project first.");
+      return;
+    }
 
     console.log("🔨 [TopBar] Starting contract generation");
     setIsGeneratingSolidity(true);
@@ -121,7 +121,11 @@ const handleGenerate = async (type) => {
     setCompilationResult({ abi: null, bytecode: null });
     setDeploymentResult({ address: null, txHash: null });
     setOperationState({ loading: false, error: null, message: null });
-    const name = currentProject.name.replace(/\s+/g, '') || "MyContract";
+    
+    // Ensure we have a valid contract name
+    const projectName = currentProject.name || "MyContract";
+    const name = projectName.replace(/\s+/g, '') || "MyContract";
+    console.log("🏷️ [TopBar] Using contract name:", name);
     setContractName(name);
 
     try {

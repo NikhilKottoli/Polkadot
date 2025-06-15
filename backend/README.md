@@ -63,7 +63,7 @@ backend/
 
 3. Link with polkatool:
    ```powershell
-   polkatool link target\riscv32ema-unknown-none-elf\release\my_contract -o contract.polkavm
+   polkatool link target\riscv32im-unknown-none-elf\release\my_contract -o contract.polkavm
    ```
 
 #### Linux/macOS (Bash)
@@ -80,7 +80,7 @@ backend/
 
 3. Link with polkatool:
    ```bash
-   polkatool link target/riscv32ema-unknown-none-elf/release/my_contract -o contract.polkavm
+   polkatool link target/riscv32im-unknown-none-elf/release/my_contract -o contract.polkavm
    ```
 
 ### Compile Solidity Contract
@@ -205,7 +205,7 @@ https://contracts.polkadot.io/connect-to-asset-hub
 
 2. **Rust compilation fails:**
    - Ensure you have the correct nightly toolchain: `rustup toolchain install nightly-2024-01-01`
-   - Add the target: `rustup target add riscv32ema-unknown-none-elf --toolchain nightly-2024-01-01`
+   - Add the target: `rustup target add riscv32im-unknown-none-elf --toolchain nightly-2024-01-01`
 
 3. **polkatool not found:**
    - Install polkatool: `cargo install polkatool`
@@ -218,7 +218,7 @@ https://contracts.polkadot.io/connect-to-asset-hub
 ### Linux/macOS
 1. **Rust compilation fails:**
    - Ensure you have the correct nightly toolchain: `rustup toolchain install nightly-2024-01-01`
-   - Add the target: `rustup target add riscv32ema-unknown-none-elf --toolchain nightly-2024-01-01`
+   - Add the target: `rustup target add riscv32im-unknown-none-elf --toolchain nightly-2024-01-01`
 
 2. **polkatool not found:**
    - Install polkatool: `cargo install polkatool`

@@ -220,8 +220,11 @@ const handleGenerate = async (type) => {
   setDeploymentResult({ address: null, txHash: null });
   setOperationState({ loading: false, error: null, message: null });
 
-  const name = currentProject.name.replace(/\s+/g, '') || "MyContract";
-  setContractName(name);
+      // Ensure we have a valid contract name
+    const projectName = currentProject?.name || "MyContract";
+    const name = projectName.replace(/\s+/g, '') || "MyContract";
+    console.log("🏷️ [gasEstimation] Using contract name:", name);
+    setContractName(name);
 
   try {
     const nodes = getNodes();

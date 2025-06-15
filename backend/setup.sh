@@ -20,7 +20,7 @@ fi
 # Install specific nightly toolchain for pallet-revive
 rustup toolchain install nightly-2024-01-01
 rustup component add rust-src --toolchain nightly-2024-01-01
-rustup target add riscv32ema-unknown-none-elf --toolchain nightly-2024-01-01
+rustup target add riscv32im-unknown-none-elf --toolchain nightly-2024-01-01
 
 echo "🔧 Installing polkatool..."
 # Install polkatool for PolkaVM compilation
