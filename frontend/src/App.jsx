@@ -17,7 +17,7 @@ const ContractDeployer = lazy(() =>
   import("./pages/CompileAndDeploy/CompileAndDeploy")
 );
 const MonitoringWithDashboard = lazy(() =>
-  import("./pages/AssetHub/MonitoringWithDashboard")
+  import("./pages/Monitoring/MonitoringWithDashboard")
 );
 const CodeEditor = lazy(() => import("./pages/CodeEditor/CodeEditor"));
 
