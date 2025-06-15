@@ -10,6 +10,8 @@ import IntegrationsSection from "./components/IntegrationsSection";
 import TeamSection from "./components/TeamSection";
 import FooterSection from "./components/FooterSection";
 import LoadingAnimation from "../../components/LoadingAnimation";
+import Features from "./components/Features";
+import CoolMarquee from "./components/Marque";
 
 const transitionVariants = {
   item: {
@@ -190,8 +192,12 @@ export default function HeroSection() {
         </section>
         <IntegrationsSection />
         <FeaturesSection />
+        <CoolMarquee />
+        <Features />
+
         <TeamSection />
         <FooterSection />
+
         {/* <LoadingAnimation /> */}
       </main>
     </>

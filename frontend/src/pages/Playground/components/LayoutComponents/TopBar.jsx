@@ -803,7 +803,7 @@ export default function TopBar({
             <div className="flex gap-6 flex-1 overflow-auto">
               {/* Code Editor Column */}
 
-              <Card className="flex flex-col h-full">
+              <Card className="flex flex-col h-full max-w-[60%]">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm text-muted-foreground">
                     Solidity Code
