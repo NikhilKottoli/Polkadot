@@ -11,6 +11,18 @@ const fs = require('fs').promises;
 const { exec } = require('child_process');
 const path = require('path');
 
+const ASSET_HUB_ABI = [
+  "function createAsset(string name, string symbol, uint8 decimals) external returns (uint256)",
+  "function mintAsset(uint256 assetId, address to, uint256 amount) external",
+  "function freezeAccount(uint256 assetId, address account) external",
+  "function unfreezeAccount(uint256 assetId, address account) external",
+  "function getBalance(uint256 assetId, address account) external view returns (uint256)",
+  "function isAccountFrozen(uint256 assetId, address account) external view returns (bool)",
+  "function getAsset(uint256 assetId) external view returns (tuple(string name, string symbol, uint8 decimals, uint256 totalSupply, address creator, bool exists))",
+  "function nextAssetId() external view returns (uint256)",
+  "function getUserAssets(address user) external view returns (uint256[])",
+];
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -64,15 +76,15 @@ app.post('/api/compile', async (req, res) => {
     console.log('Compilation successful');
 
     // Send Telegram notification
-    sendTelegramMessage(CHAT_ID,
-      `✅ Compilation Successful!\n` +
-      `📍 Contract: ${contractName || 'Unknown'}\n` +
-      `📦 Bytecode: ${bytecode.slice(0, 12)}...\n` +
-      `📄 ABI entries: ${abi.length}\n` +
-      `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch(error => {
-      console.error('❌ Failed to send compilation notification:', error);
-    });
+    // sendTelegramMessage(CHAT_ID,
+    //   `✅ Compilation Successful!\n` +
+    //   `📍 Contract: ${contractName || 'Unknown'}\n` +
+    //   `📦 Bytecode: ${bytecode.slice(0, 12)}...\n` +
+    //   `📄 ABI entries: ${abi.length}\n` +
+    //   `🕒 Time: ${new Date().toLocaleString()}`
+    // ).catch(error => {
+    //   console.error('❌ Failed to send compilation notification:', error);
+    // });
 
 
     res.json({ success: true, bytecode, abi });
@@ -364,6 +376,280 @@ function cleanup() {
   }
   monitoringIntervals.clear();
 }
+// Create Asset
+app.post('/api/createAsset', async (req, res) => {
+  const { name, symbol, decimals, contractAddress } = req.body;
+
+  try {
+    console.log(`Creating asset: ${name} (${symbol})...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const tx = await contract.createAsset(name, symbol, decimals);
+    await tx.wait();
+
+    console.log('Asset creation successful');
+
+    // Send Telegram notification
+    sendTelegramMessage(CHAT_ID,
+      `✅ Asset Created!\n` +
+      `📍 Name: ${name}\n` +
+      `🔗 Symbol: ${symbol}\n` +
+      `💰 Transaction Hash: ${tx.hash}\n` +
+      `🕒 Time: ${new Date().toLocaleString()}`
+    ).catch(error => {
+      console.error('❌ Failed to send asset creation notification:', error);
+    });
+
+    res.json({
+      success: true,
+      transactionHash: tx.hash,
+      name: name,
+      symbol: symbol
+    });
+  } catch (err) {
+    console.error('Asset creation failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Mint Asset
+app.post('/api/mintAsset', async (req, res) => {
+  const { assetId, to, amount, contractAddress } = req.body;
+
+  try {
+    console.log(`Minting ${amount} tokens of asset ${assetId} to ${to}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const tx = await contract.mintAsset(assetId, to, amount);
+    await tx.wait();
+
+    console.log('Minting successful');
+
+    sendTelegramMessage(CHAT_ID,
+      `✅ Tokens Minted!\n` +
+      `📍 Asset ID: ${assetId}\n` +
+      `👤 To: ${to}\n` +
+      `💰 Amount: ${amount}\n` +
+      `🔗 Transaction Hash: ${tx.hash}\n` +
+      `🕒 Time: ${new Date().toLocaleString()}`
+    ).catch(error => {
+      console.error('❌ Failed to send minting notification:', error);
+    });
+
+    res.json({
+      success: true,
+      transactionHash: tx.hash,
+      assetId: assetId,
+      amount: amount
+    });
+  } catch (err) {
+    console.error('Minting failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Freeze Account
+app.post('/api/freezeAccount', async (req, res) => {
+  const { assetId, account, contractAddress } = req.body;
+
+  try {
+    console.log(`Freezing account ${account} for asset ${assetId}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const tx = await contract.freezeAccount(assetId, account);
+    await tx.wait();
+
+    console.log('Account freezing successful');
+
+    sendTelegramMessage(CHAT_ID,
+      `❄️ Account Frozen!\n` +
+      `📍 Asset ID: ${assetId}\n` +
+      `👤 Account: ${account}\n` +
+      `🔗 Transaction Hash: ${tx.hash}\n` +
+      `🕒 Time: ${new Date().toLocaleString()}`
+    ).catch(error => {
+      console.error('❌ Failed to send freeze notification:', error);
+    });
+
+    res.json({
+      success: true,
+      transactionHash: tx.hash,
+      assetId: assetId,
+      account: account
+    });
+  } catch (err) {
+    console.error('Account freezing failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Unfreeze Account
+app.post('/api/unfreezeAccount', async (req, res) => {
+  const { assetId, account, contractAddress } = req.body;
+
+  try {
+    console.log(`Unfreezing account ${account} for asset ${assetId}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const tx = await contract.unfreezeAccount(assetId, account);
+    await tx.wait();
+
+    console.log('Account unfreezing successful');
+
+    sendTelegramMessage(CHAT_ID,
+      `🔥 Account Unfrozen!\n` +
+      `📍 Asset ID: ${assetId}\n` +
+      `👤 Account: ${account}\n` +
+      `🔗 Transaction Hash: ${tx.hash}\n` +
+      `🕒 Time: ${new Date().toLocaleString()}`
+    ).catch(error => {
+      console.error('❌ Failed to send unfreeze notification:', error);
+    });
+
+    res.json({
+      success: true,
+      transactionHash: tx.hash,
+      assetId: assetId,
+      account: account
+    });
+  } catch (err) {
+    console.error('Account unfreezing failed:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get Asset Info
+app.get('/api/getAsset/:contractAddress/:assetId', async (req, res) => {
+  const { contractAddress, assetId } = req.params;
+
+  try {
+    console.log(`Fetching asset info for asset ${assetId}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const assetInfo = await contract.getAsset(assetId);
+
+    res.json({
+      success: true,
+      asset: {
+        name: assetInfo[0],
+        symbol: assetInfo[1],
+        decimals: Number(assetInfo[2]),
+        totalSupply: assetInfo[3].toString(),
+        creator: assetInfo[4],
+        exists: assetInfo[5]
+      }
+    });
+  } catch (err) {
+    console.error('Failed to fetch asset info:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get Balance
+app.get('/api/getBalance/:contractAddress/:assetId/:account', async (req, res) => {
+  const { contractAddress, assetId, account } = req.params;
+
+  try {
+    console.log(`Fetching balance for account ${account} in asset ${assetId}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const balance = await contract.getBalance(assetId, account);
+
+    res.json({
+      success: true,
+      balance: balance.toString()
+    });
+  } catch (err) {
+    console.error('Failed to fetch balance:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Check if Account is Frozen
+app.get('/api/isAccountFrozen/:contractAddress/:assetId/:account', async (req, res) => {
+  const { contractAddress, assetId, account } = req.params;
+
+  try {
+    console.log(`Checking freeze status for account ${account} in asset ${assetId}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const isFrozen = await contract.isAccountFrozen(assetId, account);
+
+    res.json({
+      success: true,
+      isFrozen: isFrozen
+    });
+  } catch (err) {
+    console.error('Failed to check freeze status:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get User Assets
+app.get('/api/getUserAssets/:contractAddress/:userAddress', async (req, res) => {
+  const { contractAddress, userAddress } = req.params;
+
+  try {
+    console.log(`Fetching assets for user ${userAddress}...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const userAssets = await contract.getUserAssets(userAddress);
+
+    res.json({
+      success: true,
+      assets: userAssets.map(id => Number(id))
+    });
+  } catch (err) {
+    console.error('Failed to fetch user assets:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get Next Asset ID
+app.get('/api/getNextAssetId/:contractAddress', async (req, res) => {
+  const { contractAddress } = req.params;
+
+  try {
+    console.log(`Fetching next asset ID...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const nextAssetId = await contract.nextAssetId();
+
+    res.json({
+      success: true,
+      nextAssetId: Number(nextAssetId)
+    });
+  } catch (err) {
+    console.error('Failed to fetch next asset ID:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// Get All Assets (since all are created by backend wallet)
+app.get('/api/getAllAssets/:contractAddress', async (req, res) => {
+  const { contractAddress } = req.params;
+
+  try {
+    console.log(`Fetching all assets...`);
+    
+    const contract = new ethers.Contract(contractAddress, ASSET_HUB_ABI, wallet);
+    const nextAssetId = await contract.nextAssetId();
+    
+    // Create array of all asset IDs from 0 to nextAssetId-1
+    const allAssets = [];
+    for (let i = 0; i < Number(nextAssetId); i++) {
+      allAssets.push(i);
+    }
+
+    res.json({
+      success: true,
+      assets: allAssets
+    });
+  } catch (err) {
+    console.error('Failed to fetch all assets:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 // Handle graceful shutdown
 process.on('SIGTERM', cleanup);

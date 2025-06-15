@@ -22,25 +22,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ethers } from "ethers";
 import WalletProfile from "./WalletProfile";
 
-const ASSET_HUB_ABI = [
-  "function createAsset(string name, string symbol, uint8 decimals) external returns (uint256)",
-  "function mint(uint256 assetId, address to, uint256 amount) external",
-  "function freeze(uint256 assetId, address account, bool freezeStatus) external",
-  "function balanceOf(uint256 assetId, address account) external view returns (uint256)",
-  "function isFrozen(uint256 assetId, address account) external view returns (bool)",
-  "function assetInfo(uint256 assetId) external view returns (string, string, uint8, uint256)",
-  "function assetCount() external view returns (uint256)",
-];
-
-const CONTRACT_ADDRESS = "0xab6393232CbB3D3B38f6f1D33728f1de275E098b";
+const CONTRACT_ADDRESS = "0x4AC7C7DceA064e7A5A30aB4a4B876e80D1F02490";
+const BACKEND_URL = "http://localhost:3000";
 
 const AssetHubDashboard = () => {
-  const [provider, setProvider] = useState(null);
-  const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
   const [account, setAccount] = useState("");
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -68,69 +55,89 @@ const AssetHubDashboard = () => {
   const [balance, setBalance] = useState("");
   const [frozen, setFrozen] = useState(null);
 
+  // Load all assets (since backend creates all assets)
+  const loadAllAssets = async () => {
+    try {
+      console.log("Loading all assets...");
+      const response = await fetch(`${BACKEND_URL}/api/getNextAssetId/${CONTRACT_ADDRESS}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        // Create array of all asset IDs from 0 to nextAssetId-1
+        const allAssets = [];
+        for (let i = 0; i < result.nextAssetId; i++) {
+          allAssets.push(i);
+        }
+        setExistingAssets(allAssets);
+        console.log("Loaded assets:", allAssets);
+      } else {
+        console.error("Failed to load assets:", result.error);
+      }
+    } catch (error) {
+      console.error('Failed to load assets:', error);
+    }
+  };
+
   const connectWallet = async () => {
     try {
       setLoading(true);
       console.log("Connecting to wallet...");
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      const signer = await provider.getSigner();
-      const address = await signer.getAddress();
+      
+      if (!window.ethereum) {
+        alert("Please install MetaMask!");
+        return;
+      }
 
-      console.log("Provider:", provider);
-      console.log("Signer:", signer);
-      console.log("Address:", address);
-
-      setProvider(provider);
-      setSigner(signer);
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts'
+      });
+      
+      const address = accounts[0];
       setAccount(address);
       setConnected(true);
-
-      const contractInstance = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        ASSET_HUB_ABI,
-        signer
-      );
-      setContract(contractInstance);
-
-      // Load existing assets - using 1-based indexing like the working code
-      const count = await contractInstance.assetCount();
-      console.log("Asset count:", count.toString());
-      const assets = [];
-      for (let i = 1; i <= count; i++) {
-        assets.push(i);
-      }
-      console.log("Existing assets:", assets);
-      setExistingAssets(assets);
+      
+      console.log("Connected to:", address);
+      
+      // Load all assets after connecting
+      await loadAllAssets();
+      
     } catch (error) {
       console.error("Connection error:", error);
       alert("Error connecting to wallet");
     } finally {
       setLoading(false);
-      console.log("Finished connectWallet");
     }
   };
 
   const handleFreeze = async () => {
-    if (!contract || !freezeAssetId || !freezeAccount) return;
+    if (!freezeAssetId || !freezeAccount) return;
 
     try {
       setLoading(true);
-      const tx = await contract.freeze(
-        Number(freezeAssetId),
-        freezeAccount,
-        freezeStatus
-      );
-      await tx.wait();
-      setContractTestResult(
-        `✅ ${freezeStatus ? "Froze" : "Unfroze"} account ${truncateAddress(
-          freezeAccount
-        )} for Asset #${freezeAssetId}`
-      );
-      // Clear inputs after successful operation
-      setFreezeAssetId("");
-      setFreezeAccount("");
-      setFreezeStatus(false);
+      const endpoint = freezeStatus ? 'freezeAccount' : 'unfreezeAccount';
+      const response = await fetch(`${BACKEND_URL}/api/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assetId: freezeAssetId,
+          account: freezeAccount,
+          contractAddress: CONTRACT_ADDRESS
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setContractTestResult(`✅ Account ${freezeStatus ? 'frozen' : 'unfrozen'} successfully! TX: ${result.transactionHash}`);
+        // Clear form
+        setFreezeAssetId("");
+        setFreezeAccount("");
+        setFreezeStatus(false);
+      } else {
+        setContractTestResult(`❌ Error: ${result.error}`);
+      }
     } catch (error) {
       console.error("Freeze error:", error);
       setContractTestResult(`❌ Error: ${error.message}`);
@@ -140,18 +147,17 @@ const AssetHubDashboard = () => {
   };
 
   const testContractConnection = async () => {
-    if (!contract) {
-      setContractTestResult("Contract not initialized.");
-      return;
-    }
     try {
-      // Try to call a simple view function
-      const count = await contract.assetCount();
-      setContractTestResult(`✅ Connected! assetCount = ${count.toString()}`);
-    } catch (err) {
-      setContractTestResult(
-        `❌ Connection failed: ${err.reason || err.message}`
-      );
+      const response = await fetch(`${BACKEND_URL}/api/getNextAssetId/${CONTRACT_ADDRESS}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setContractTestResult(`✅ Connected! Next Asset ID = ${result.nextAssetId}`);
+      } else {
+        setContractTestResult(`❌ Connection failed: ${result.error}`);
+      }
+    } catch (error) {
+      setContractTestResult(`❌ Connection failed: ${error.message}`);
     }
   };
 
@@ -159,114 +165,120 @@ const AssetHubDashboard = () => {
     return addr ? `${addr.slice(0, 5)}...${addr.slice(-4)}` : "";
   };
 
-  // Asset creation handler - fixed to properly update asset list
+  // Asset creation handler
   const handleCreateAsset = async () => {
-    if (!contract) return;
     try {
       setLoading(true);
-      const tx = await contract.createAsset(
-        assetName,
-        assetSymbol,
-        assetDecimals
-      );
-      await tx.wait();
+      const response = await fetch(`${BACKEND_URL}/api/createAsset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: assetName,
+          symbol: assetSymbol,
+          decimals: assetDecimals,
+          contractAddress: CONTRACT_ADDRESS
+        }),
+      });
 
-      // Refresh asset list properly
-      const count = await contract.assetCount();
-      const newAssets = [];
-      for (let i = 1; i <= count; i++) {
-        newAssets.push(i);
+      const result = await response.json();
+      
+      if (result.success) {
+        setContractTestResult(`✅ Asset created successfully! TX: ${result.transactionHash}`);
+        // Refresh asset list
+        await loadAllAssets();
+        // Clear form
+        setAssetName("");
+        setAssetSymbol("");
+        setAssetDecimals(18);
+      } else {
+        setContractTestResult(`❌ Error: ${result.error}`);
       }
-      setExistingAssets(newAssets);
-
-      // Clear form
-      setAssetName("");
-      setAssetSymbol("");
-      setAssetDecimals(18);
-
-      setContractTestResult(
-        `✅ Asset created successfully! Total assets: ${count}`
-      );
-    } catch (e) {
-      console.error("Error creating asset:", e);
-      setContractTestResult(`❌ Error creating asset: ${e.message}`);
+    } catch (error) {
+      setContractTestResult(`❌ Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mint handler - simplified validation
+  // Mint handler
   const handleMint = async () => {
-    if (!contract || !existingAssets.includes(Number(mintAssetId))) {
+    if (!existingAssets.includes(Number(mintAssetId))) {
       setContractTestResult("❌ Invalid or non-existing asset ID");
       return;
     }
     try {
       setLoading(true);
-      const tx = await contract.mint(mintAssetId, mintTo, mintAmount);
-      await tx.wait();
-      setContractTestResult(
-        `✅ Successfully minted ${mintAmount} tokens to ${truncateAddress(
-          mintTo
-        )}`
-      );
-
-      // Clear form
-      setMintAssetId("");
-      setMintTo("");
-      setMintAmount("");
-    } catch (e) {
-      console.error("Error minting:", e);
-      setContractTestResult(`❌ Error minting: ${e.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Asset info fetch - simplified without complex BigInt conversions
-  const fetchAssetInfo = async () => {
-    try {
-      if (!contract) {
-        setContractTestResult("❌ Contract not initialized");
-        return;
-      }
-
-      if (!existingAssets.includes(Number(infoAssetId))) {
-        setContractTestResult("❌ Invalid asset ID");
-        return;
-      }
-
-      setLoading(true);
-
-      // Use the asset ID directly as it's 1-based in the working code
-      const assetId = Number(infoAssetId);
-
-      const [info, bal, isFrozen] = await Promise.all([
-        contract.assetInfo(assetId),
-        contract.balanceOf(assetId, account),
-        contract.isFrozen(assetId, account),
-      ]);
-
-      setAssetInfo({
-        name: info[0],
-        symbol: info[1],
-        decimals: Number(info[2]),
-        totalSupply: info[3].toString(),
+      const response = await fetch(`${BACKEND_URL}/api/mintAsset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assetId: mintAssetId,
+          to: mintTo,
+          amount: mintAmount,
+          contractAddress: CONTRACT_ADDRESS
+        }),
       });
 
-      setBalance(bal.toString());
-      setFrozen(isFrozen);
-      setContractTestResult(`✅ Asset info fetched successfully`);
-    } catch (e) {
-      console.error("Error fetching asset info:", e);
-      setAssetInfo(null);
-      setBalance("");
-      setFrozen(null);
-      setContractTestResult(`❌ Error fetching asset info: ${e.message}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setContractTestResult(`✅ Successfully minted ${result.amount} tokens! TX: ${result.transactionHash}`);
+        // Clear form
+        setMintAssetId("");
+        setMintTo("");
+        setMintAmount("");
+      } else {
+        setContractTestResult(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      setContractTestResult(`❌ Error: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
+  // Asset info fetch
+  const fetchAssetInfo = async () => {
+    try {
+      setLoading(true);
+      
+      const [assetResponse, balanceResponse, frozenResponse] = await Promise.all([
+        fetch(`${BACKEND_URL}/api/getAsset/${CONTRACT_ADDRESS}/${infoAssetId}`),
+        fetch(`${BACKEND_URL}/api/getBalance/${CONTRACT_ADDRESS}/${infoAssetId}/${account}`),
+        fetch(`${BACKEND_URL}/api/isAccountFrozen/${CONTRACT_ADDRESS}/${infoAssetId}/${account}`)
+      ]);
+
+      const [assetResult, balanceResult, frozenResult] = await Promise.all([
+        assetResponse.json(),
+        balanceResponse.json(),
+        frozenResponse.json()
+      ]);
+
+      if (assetResult.success && balanceResult.success && frozenResult.success) {
+        setAssetInfo(assetResult.asset);
+        setBalance(balanceResult.balance);
+        setFrozen(frozenResult.isFrozen);
+        setContractTestResult(`✅ Asset info fetched successfully`);
+      } else {
+        setContractTestResult(`❌ Error fetching asset info`);
+      }
+    } catch (error) {
+      setContractTestResult(`❌ Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load assets when connected
+  useEffect(() => {
+    if (connected) {
+      loadAllAssets();
+    }
+  }, [connected]);
 
   if (!connected) {
     return (
@@ -317,7 +329,6 @@ const AssetHubDashboard = () => {
               <Button
                 variant="outline"
                 onClick={testContractConnection}
-                disabled={!contract}
               >
                 Test Contract
               </Button>
