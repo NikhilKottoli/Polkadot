@@ -7,7 +7,10 @@ const ethers = require("ethers");
 const { sendTelegramMessage } = require("../polkaflow-telegram-bot");
 const { compile } = require("@parity/resolc"); // Changed import
 const { pollForEvents, setupEventMonitoring } = require("./utils");
+const fs = require("fs");
+const path = require("path");
 const { compileRust } = require("./controllers/rustHandler");
+
 const ASSET_HUB_ABI = [
   "function createAsset(string name, string symbol, uint8 decimals) external returns (uint256)",
   "function mintAsset(uint256 assetId, address to, uint256 amount) external",
@@ -36,6 +39,37 @@ const CHAT_ID = "255522477";
 // Store deployed contracts for event monitoring
 const deployedContracts = new Map();
 const monitoringIntervals = new Map();
+
+// User asset tracking with file persistence
+const USER_ASSETS_FILE = path.join(__dirname, "userAssets.json");
+let userAssetMapping = new Map();
+
+// Load existing user assets on startup
+if (fs.existsSync(USER_ASSETS_FILE)) {
+  try {
+    const data = JSON.parse(fs.readFileSync(USER_ASSETS_FILE, "utf8"));
+    userAssetMapping = new Map(Object.entries(data).map(([k, v]) => [k, v]));
+    console.log("📁 Loaded user asset mappings from file");
+  } catch (error) {
+    console.error("❌ Failed to load user assets file:", error);
+  }
+}
+
+// Save user assets to file
+const saveUserAssets = () => {
+  try {
+    const data = Object.fromEntries(userAssetMapping);
+    fs.writeFileSync(USER_ASSETS_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error("❌ Failed to save user assets:", error);
+  }
+};
+
+// Helper function to check if user owns asset
+const checkAssetOwnership = (userAddress, assetId) => {
+  const userAssets = userAssetMapping.get(userAddress) || [];
+  return userAssets.includes(parseInt(assetId));
+};
 
 app.post("/api/compile", async (req, res) => {
   const { code, contractName } = req.body;
@@ -75,26 +109,64 @@ app.post("/api/compile", async (req, res) => {
 
     console.log("Compilation successful");
 
-    // Send Telegram notification
-    // sendTelegramMessage(CHAT_ID,
-    //   `✅ Compilation Successful!\n` +
-    //   `📍 Contract: ${contractName || 'Unknown'}\n` +
-    //   `📦 Bytecode: ${bytecode.slice(0, 12)}...\n` +
-    //   `📄 ABI entries: ${abi.length}\n` +
-    //   `🕒 Time: ${new Date().toLocaleString()}`
-    // ).catch(error => {
-    //   console.error('❌ Failed to send compilation notification:', error);
-    // });
-
     res.json({ success: true, bytecode, abi });
   } catch (err) {
     console.error("Compilation error:", err.message);
     res.status(500).json({
       success: false,
       error: err.message,
-      // Add debug info for frontend
       _debug: err.stack,
     });
+  }
+});
+
+app.post("/api/compile-rust", async (req, res) => {
+  const { code } = req.body;
+  console.log("Received /api/compile-rust request");
+
+  const filePath = path.join(__dirname, "temp_contract.rs");
+  const outputPath = path.join(__dirname, "temp_contract.polkavm");
+
+  try {
+    // Write the Rust code to a temporary file
+    await fs.writeFile(filePath, code);
+
+    // Compile the Rust code to a PolkaVM binary
+    const compileCommand = `rustc +nightly --target=riscv32imc-unknown-none-elf -O --crate-type=cdylib -o ${outputPath} ${filePath}`;
+
+    await new Promise((resolve, reject) => {
+      exec(compileCommand, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`Rust compilation error: ${stderr}`);
+          reject(new Error(`Rust compilation failed: ${stderr}`));
+          return;
+        }
+        resolve(stdout);
+      });
+    });
+
+    // Read the compiled binary
+    const bytecode = await fs.readFile(outputPath, "hex");
+
+    // Placeholder for ABI extraction from Rust code
+    const abi = []; // TODO: Implement ABI extraction for Rust
+
+    res.json({ success: true, bytecode: `0x${bytecode}`, abi });
+  } catch (err) {
+    console.error("Rust compilation error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      _debug: err.stack,
+    });
+  } finally {
+    // Clean up temporary files
+    try {
+      await fs.unlink(filePath);
+      await fs.unlink(outputPath);
+    } catch (cleanupErr) {
+      console.error("Error cleaning up temporary files:", cleanupErr);
+    }
   }
 });
 
@@ -163,7 +235,6 @@ app.get("/api/save", async (req, res) => {
         .status(404)
         .json({ success: false, error: "Flowchart not found." });
     }
-    // Sort versions by timestamp ascending
     const sortedVersions = flow.versions.sort(
       (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
     );
@@ -208,16 +279,6 @@ app.post("/api/save", async (req, res) => {
   }
 });
 
-app.post("/api/clear", async (req, res) => {
-  try {
-    await Flowchart.deleteMany({});
-    res.json({ success: true, message: "All flowcharts deleted." });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// New endpoint for sending Telegram messages from frontend
 app.post("/api/telegram/send", async (req, res) => {
   try {
     const { chatId, message } = req.body;
@@ -248,7 +309,6 @@ app.post("/api/telegram/send", async (req, res) => {
   }
 });
 
-// Endpoint to register existing contracts for monitoring
 app.post("/api/monitor/register", async (req, res) => {
   try {
     const { contractAddress, abi, contractName } = req.body;
@@ -287,7 +347,6 @@ app.post("/api/monitor/register", async (req, res) => {
   }
 });
 
-// Endpoint to get monitoring status
 app.get("/api/monitor/status", (req, res) => {
   const contracts = Array.from(deployedContracts.entries()).map(
     ([address, info]) => ({
@@ -305,7 +364,6 @@ app.get("/api/monitor/status", (req, res) => {
   });
 });
 
-// Endpoint to manually check for events (useful for testing)
 app.post("/api/monitor/check", async (req, res) => {
   try {
     const { contractAddress } = req.body;
@@ -352,12 +410,15 @@ function cleanup() {
   }
   monitoringIntervals.clear();
 }
-// Create Asset
+
+// Create Asset - Updated with user tracking
 app.post("/api/createAsset", async (req, res) => {
-  const { name, symbol, decimals, contractAddress } = req.body;
+  const { name, symbol, decimals, contractAddress, userAddress } = req.body;
 
   try {
-    console.log(`Creating asset: ${name} (${symbol})...`);
+    console.log(
+      `Creating asset: ${name} (${symbol}) for user: ${userAddress}...`
+    );
 
     const contract = new ethers.Contract(
       contractAddress,
@@ -367,14 +428,26 @@ app.post("/api/createAsset", async (req, res) => {
     const tx = await contract.createAsset(name, symbol, decimals);
     await tx.wait();
 
-    console.log("Asset creation successful");
+    // Get the asset ID that was just created
+    const nextId = await contract.nextAssetId();
+    const assetId = Number(nextId) - 1;
 
-    // Send Telegram notification
+    // Track which user created this asset
+    if (!userAssetMapping.has(userAddress)) {
+      userAssetMapping.set(userAddress, []);
+    }
+    userAssetMapping.get(userAddress).push(assetId);
+    saveUserAssets();
+
+    console.log(`Asset ${assetId} created for user ${userAddress}`);
+
     sendTelegramMessage(
       CHAT_ID,
       `✅ Asset Created!\n` +
         `📍 Name: ${name}\n` +
         `🔗 Symbol: ${symbol}\n` +
+        `👤 For User: ${userAddress}\n` +
+        `🆔 Asset ID: ${assetId}\n` +
         `💰 Transaction Hash: ${tx.hash}\n` +
         `🕒 Time: ${new Date().toLocaleString()}`
     ).catch((error) => {
@@ -394,12 +467,22 @@ app.post("/api/createAsset", async (req, res) => {
   }
 });
 
-// Mint Asset
+// Mint Asset - Updated with ownership check
 app.post("/api/mintAsset", async (req, res) => {
-  const { assetId, to, amount, contractAddress } = req.body;
+  const { assetId, to, amount, contractAddress, userAddress } = req.body;
 
   try {
-    console.log(`Minting ${amount} tokens of asset ${assetId} to ${to}...`);
+    // Check if user owns this asset
+    if (!checkAssetOwnership(userAddress, assetId)) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't own this asset",
+      });
+    }
+
+    console.log(
+      `Minting ${amount} tokens of asset ${assetId} to ${to} for owner ${userAddress}...`
+    );
 
     const contract = new ethers.Contract(
       contractAddress,
@@ -417,6 +500,7 @@ app.post("/api/mintAsset", async (req, res) => {
         `📍 Asset ID: ${assetId}\n` +
         `👤 To: ${to}\n` +
         `💰 Amount: ${amount}\n` +
+        `👤 By Owner: ${userAddress}\n` +
         `🔗 Transaction Hash: ${tx.hash}\n` +
         `🕒 Time: ${new Date().toLocaleString()}`
     ).catch((error) => {
@@ -435,12 +519,22 @@ app.post("/api/mintAsset", async (req, res) => {
   }
 });
 
-// Freeze Account
+// Freeze Account - Updated with ownership check
 app.post("/api/freezeAccount", async (req, res) => {
-  const { assetId, account, contractAddress } = req.body;
+  const { assetId, account, contractAddress, userAddress } = req.body;
 
   try {
-    console.log(`Freezing account ${account} for asset ${assetId}...`);
+    // Check if user owns this asset
+    if (!checkAssetOwnership(userAddress, assetId)) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't own this asset",
+      });
+    }
+
+    console.log(
+      `Freezing account ${account} for asset ${assetId} by owner ${userAddress}...`
+    );
 
     const contract = new ethers.Contract(
       contractAddress,
@@ -457,6 +551,7 @@ app.post("/api/freezeAccount", async (req, res) => {
       `❄️ Account Frozen!\n` +
         `📍 Asset ID: ${assetId}\n` +
         `👤 Account: ${account}\n` +
+        `👤 By Owner: ${userAddress}\n` +
         `🔗 Transaction Hash: ${tx.hash}\n` +
         `🕒 Time: ${new Date().toLocaleString()}`
     ).catch((error) => {
@@ -475,12 +570,22 @@ app.post("/api/freezeAccount", async (req, res) => {
   }
 });
 
-// Unfreeze Account
+// Unfreeze Account - Updated with ownership check
 app.post("/api/unfreezeAccount", async (req, res) => {
-  const { assetId, account, contractAddress } = req.body;
+  const { assetId, account, contractAddress, userAddress } = req.body;
 
   try {
-    console.log(`Unfreezing account ${account} for asset ${assetId}...`);
+    // Check if user owns this asset
+    if (!checkAssetOwnership(userAddress, assetId)) {
+      return res.status(403).json({
+        success: false,
+        error: "You don't own this asset",
+      });
+    }
+
+    console.log(
+      `Unfreezing account ${account} for asset ${assetId} by owner ${userAddress}...`
+    );
 
     const contract = new ethers.Contract(
       contractAddress,
@@ -497,6 +602,7 @@ app.post("/api/unfreezeAccount", async (req, res) => {
       `🔥 Account Unfrozen!\n` +
         `📍 Asset ID: ${assetId}\n` +
         `👤 Account: ${account}\n` +
+        `👤 By Owner: ${userAddress}\n` +
         `🔗 Transaction Hash: ${tx.hash}\n` +
         `🕒 Time: ${new Date().toLocaleString()}`
     ).catch((error) => {
@@ -511,6 +617,24 @@ app.post("/api/unfreezeAccount", async (req, res) => {
     });
   } catch (err) {
     console.error("Account unfreezing failed:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get User's Owned Assets - New endpoint
+app.get("/api/getUserOwnedAssets/:userAddress", async (req, res) => {
+  const { userAddress } = req.params;
+
+  try {
+    const userAssets = userAssetMapping.get(userAddress) || [];
+    console.log(`User ${userAddress} owns assets:`, userAssets);
+
+    res.json({
+      success: true,
+      assets: userAssets,
+    });
+  } catch (err) {
+    console.error("Failed to get user assets:", err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -604,7 +728,7 @@ app.get(
   }
 );
 
-// Get User Assets
+// Get User Assets (original contract function)
 app.get(
   "/api/getUserAssets/:contractAddress/:userAddress",
   async (req, res) => {
@@ -654,7 +778,8 @@ app.get("/api/getNextAssetId/:contractAddress", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
-// Get All Assets (since all are created by backend wallet)
+
+// Get All Assets (for admin purposes)
 app.get("/api/getAllAssets/:contractAddress", async (req, res) => {
   const { contractAddress } = req.params;
 
@@ -668,7 +793,6 @@ app.get("/api/getAllAssets/:contractAddress", async (req, res) => {
     );
     const nextAssetId = await contract.nextAssetId();
 
-    // Create array of all asset IDs from 0 to nextAssetId-1
     const allAssets = [];
     for (let i = 0; i < Number(nextAssetId); i++) {
       allAssets.push(i);
@@ -700,14 +824,6 @@ app.post("/api/rust/compile", async (req, res) => {
   }
 });
 
-app.get("/test", (req, res) => {
-  res.json({
-    success: true,
-    message: "Polkadot VM Compiler Server is running!",
-    timestamp: new Date().toISOString(),
-  });
-});
-
 // Handle graceful shutdown
 process.on("SIGTERM", cleanup);
 process.on("SIGINT", cleanup);
@@ -715,4 +831,5 @@ process.on("SIGINT", cleanup);
 app.listen(3000, () => {
   console.log("🚀 Server running on http://localhost:3000");
   console.log("📡 Event monitoring system initialized");
+  console.log("👥 User asset tracking enabled");
 });
