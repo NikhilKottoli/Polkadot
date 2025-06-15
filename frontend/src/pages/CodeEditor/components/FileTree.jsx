@@ -167,6 +167,13 @@ export default function FileTree() {
     // Add dynamic files to appropriate folders
     dynamicFiles.forEach(file => {
       const fileId = file.id;
+      
+      // Skip files without proper names
+      if (!file.name || file.name === 'Unknown' || file.name.includes('undefined')) {
+        console.warn('Skipping invalid file:', file);
+        return;
+      }
+      
       dynamicItems[fileId] = {
         name: file.name,
         fileExtension: file.language,

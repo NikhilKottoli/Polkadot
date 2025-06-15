@@ -25,9 +25,8 @@ import useBoardStore from "../../../../store/store";
 import { generateSolidityFromFlowchart } from "../../../../utils/solidityGenerator";
 import { compileContract, deployContract } from "../../../../utils/contractService";
 import { generateSolidityFromFlowchartAI } from "../../../../utils/aiService";
-import { estimateContractGas } from "./gasEstimation";
+import { estimateContractGas, identifyHighGasFunctions } from "./gasEstimation";
 import { ContractGenerationService } from "../../../../services/contractGenerationService";
-import { GasEstimationService } from "../../../../services/gasEstimationService";
 
 
 export default function TopBar({walletAddress,setWalletAddress}) {
@@ -129,8 +128,9 @@ const handleGenerate = async (type) => {
       const nodes = getNodes();
       const edges = getEdges();
       
-      // Use the new ContractGenerationService
-      const result = await ContractGenerationService.generateContract(nodes, edges, name, type);
+      // Use the ContractGenerationService with AI
+      console.log("🤖 [TopBar] Using AI for contract generation");
+      const result = await ContractGenerationService.generateContract(nodes, edges, name, 'ai');
       
       setGeneratedSolidity(result.original.solidity);
       setGasEstimation(result.original.gasEstimation);
@@ -414,17 +414,32 @@ const handleGenerate = async (type) => {
       {showGenerationChoice && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
           <div className="bg-gray-800 border-gray-700 rounded-2xl p-8 text-center text-white">
-            <h2 className="text-2xl font-bold mb-4">Choose Generation Method</h2>
-            <p className="text-gray-400 mb-8">Select how to generate Solidity from your flowchart.</p>
+            <h2 className="text-2xl font-bold mb-4">🤖 AI Contract Generation</h2>
+            <p className="text-gray-400 mb-8">Using <span className="text-purple-400 font-semibold">Gemini AI</span> for intelligent contract generation with gas estimation.</p>
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => handleGenerate('ai')} className="p-6 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg">
-                <Sparkle className="w-10 h-10 mx-auto mb-3 text-purple-400" /> AI Generator
+              <button onClick={() => handleGenerate('ai')} className="p-6 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg border border-purple-500/30">
+                <Sparkle className="w-10 h-10 mx-auto mb-3 text-purple-400" />
+                <div className="font-semibold">🚀 AI Generator</div>
+                <div className="text-xs text-gray-400 mt-2">Gemini AI + Gas Analysis</div>
               </button>
               <button onClick={() => handleGenerate('our-algorithm')} className="p-6 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg">
-                <FileText className="w-10 h-10 mx-auto mb-3 text-blue-400" /> Flowchart Logic
+                <FileText className="w-10 h-10 mx-auto mb-3 text-blue-400" />
+                <div className="font-semibold">📋 Template Logic</div>
+                <div className="text-xs text-gray-400 mt-2">Basic flowchart conversion</div>
               </button>
             </div>
-            <Button onClick={() => setShowGenerationChoice(false)} variant="ghost" className="mt-8">Cancel</Button>
+            <div className="mt-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+              <div className="text-sm text-green-400">
+                ✅ <strong>Implementation Features:</strong>
+              </div>
+              <div className="text-xs text-gray-300 mt-2 space-y-1">
+                <div>• Gemini AI contract generation</div>
+                <div>• Gas estimation & analysis</div>
+                <div>• AI-powered Rust optimization</div>
+                <div>• Gas comparison & savings</div>
+              </div>
+            </div>
+            <Button onClick={() => setShowGenerationChoice(false)} variant="ghost" className="mt-6">Cancel</Button>
           </div>
         </div>
       )}
