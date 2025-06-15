@@ -1,4 +1,4 @@
-// components/CodeEditor.tsx (Updated)
+// components/CodeEditor.tsx (Updated with FileTree reload)
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import FileTree from "./components/FileTree";
@@ -54,132 +54,182 @@ export default function CodeEditor() {
     deployedContracts,
   } = useEditorStore();
 
-  // Initialize files from contract generation data
-  useEffect(() => {
-    console.log("🔄 [CodeEditor] Initializing files...", {
+// Initialize files from contract generation data
+    useEffect(() => {
+      console.log("🔄 [CodeEditor] Initializing files...", {
+        originalContract,
+        optimizedContracts,
+        contractName,
+      });
+
+      if (originalContract) {
+        const contractFiles = [];
+
+        contractFiles.push({
+          id: "main-solidity",
+          name: `${contractName}.sol`,
+          content: originalContract.solidity,
+          language: "solidity",
+          path: `contracts/${contractName}.sol`,
+          type: "solidity",
+          canCompile: true,
+          canDeploy: true,
+          dependencies: [],
+          originalGas: originalContract.gasEstimation?.functionGasEstimates || {},
+        });
+
+        console.log("✅ [CodeEditor] Added main Solidity contract");
+
+        // Add optimized contracts if available
+        if (optimizedContracts) {
+          console.log(
+            "🦀 [CodeEditor] Adding Rust contracts:",
+            optimizedContracts.rustContracts
+          );
+
+          optimizedContracts.rustContracts.forEach(async (rustContract, index) => {
+            // Validate rust contract data
+            if (!rustContract.name || !rustContract.code) {
+              console.warn(
+                "⚠️ [CodeEditor] Invalid Rust contract:",
+                rustContract
+              );
+              return;
+            }
+
+            // Add Rust contract (only .rs files, hide config files)
+            contractFiles.push({
+              id: `rust-${rustContract.functionName || rustContract.name}`,
+              name: `${rustContract.name}.rs`,
+              content: rustContract.code,
+              language: "rust",
+              path: `rust/${rustContract.name}.rs`,
+              type: "rust",
+              canCompile: true,
+              canDeploy: true,
+              dependencies: [],
+              functionName: rustContract.functionName || rustContract.name,
+              estimatedGasSavings: rustContract.estimatedGasSavings,
+              optimizations: rustContract.optimizations,
+              cargoToml: rustContract.cargoToml,
+              makefile: rustContract.makefile,
+            });
+
+            console.log(
+              `✅ [CodeEditor] Added Rust contract: ${rustContract.name}.rs`
+            );
+
+            // Send POST request to :3000 for each Rust file
+            try {
+              const requestBody = {
+                id: `rust-${rustContract.functionName || rustContract.name}`,
+                name: `${rustContract.name}.rs`,
+                content: rustContract.code,
+                language: "rust",
+                path: `rust/${rustContract.name}.rs`,
+                type: "rust",
+                functionName: rustContract.functionName || rustContract.name,
+                estimatedGasSavings: rustContract.estimatedGasSavings,
+                optimizations: rustContract.optimizations,
+                cargoToml: rustContract.cargoToml,
+                makefile: rustContract.makefile,
+                contractName: contractName,
+                timestamp: new Date().toISOString()
+              };
+
+              console.log(`📤 [CodeEditor] Sending POST request for ${rustContract.name}:`, requestBody);
+
+              const response = await fetch('http://localhost:3000/api/rust/compile', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+              });
+
+              if (response.ok) {
+                const responseData = await response.json();
+                console.log(`✅ [CodeEditor] POST request successful for ${rustContract.name}:`, responseData);
+              } else {
+                console.error(`❌ [CodeEditor] POST request failed for ${rustContract.name}:`, response.status, response.statusText);
+              }
+            } catch (error) {
+              console.error(`❌ [CodeEditor] Error sending POST request for ${rustContract.name}:`, error);
+            }
+          });
+
+          // Add optimized Solidity contract
+          if (optimizedContracts.modifiedSolidity) {
+            contractFiles.push({
+              id: "optimized-solidity",
+              name: `${contractName}_optimized.sol`,
+              content: optimizedContracts.modifiedSolidity,
+              language: "solidity",
+              path: `contracts/${contractName}_optimized.sol`,
+              type: "solidity",
+              canCompile: true,
+              canDeploy: true,
+              dependencies: optimizedContracts.rustContracts.map(
+                (rustContract) =>
+                  `rust-${rustContract.functionName || rustContract.name}`
+              ),
+              isOptimized: true,
+            });
+
+            console.log("✅ [CodeEditor] Added optimized Solidity contract");
+          } else {
+            console.warn("⚠️ [CodeEditor] No optimized Solidity content found");
+          }
+
+          // Set gas comparison data
+          setGasComparison({
+            original: originalContract.gasEstimation,
+            estimated: {
+              totalSavings: optimizedContracts.totalEstimatedSavings,
+              aiGenerated: optimizedContracts.aiGenerated,
+              rustContracts: optimizedContracts.rustContracts.map((r) => ({
+                name: r.name,
+                estimatedGasSavings: r.estimatedGasSavings,
+                optimizations: r.optimizations,
+              })),
+            },
+          });
+        }
+
+        // Continue with the rest of your file loading logic...
+        // Load contract files into store
+        console.log("📁 [CodeEditor] Loading contract files:", contractFiles);
+        loadContractFiles({
+          files: contractFiles,
+          contractName,
+          highGasFunctions,
+        });
+
+        // Force reload the file tree after loading files
+        console.log("🔄 [CodeEditor] Reloading file tree...");
+        
+        setTimeout(() => {
+          setLoadingStates(prev => ({ 
+            ...prev, 
+            treeReload: Date.now(),
+            filesLoaded: true 
+          }));
+          
+          console.log("✅ [CodeEditor] File tree reload triggered");
+        }, 150);
+
+        console.log("🎯 [CodeEditor] Files loaded successfully");
+      } else {
+        console.warn("⚠️ [CodeEditor] No original contract data found");
+      }
+    }, [
       originalContract,
       optimizedContracts,
       contractName,
-    });
-
-    if (originalContract) {
-      // Clear existing files and load contract files
-      const contractFiles = [];
-
-      // Add main Solidity contract
-      contractFiles.push({
-        id: "main-solidity",
-        name: `${contractName}.sol`,
-        content: originalContract.solidity,
-        language: "solidity",
-        path: `contracts/${contractName}.sol`,
-        type: "solidity",
-        canCompile: true,
-        canDeploy: true,
-        dependencies: [],
-        originalGas: originalContract.gasEstimation?.functionGasEstimates || {},
-      });
-
-      console.log("✅ [CodeEditor] Added main Solidity contract");
-
-      // Add optimized contracts if available
-      if (optimizedContracts) {
-        console.log(
-          "🦀 [CodeEditor] Adding Rust contracts:",
-          optimizedContracts.rustContracts
-        );
-
-        optimizedContracts.rustContracts.forEach((rustContract, index) => {
-          // Validate rust contract data
-          if (!rustContract.name || !rustContract.code) {
-            console.warn(
-              "⚠️ [CodeEditor] Invalid Rust contract:",
-              rustContract
-            );
-            return;
-          }
-
-          // Add Rust contract (only .rs files, hide config files)
-          contractFiles.push({
-            id: `rust-${rustContract.functionName || rustContract.name}`, // Use function name for ID
-            name: `${rustContract.name}.rs`,
-            content: rustContract.code,
-            language: "rust",
-            path: `rust/${rustContract.name}.rs`,
-            type: "rust",
-            canCompile: true,
-            canDeploy: true,
-            dependencies: [],
-            functionName: rustContract.functionName || rustContract.name,
-            estimatedGasSavings: rustContract.estimatedGasSavings,
-            optimizations: rustContract.optimizations,
-            cargoToml: rustContract.cargoToml, // Store but don't show
-            makefile: rustContract.makefile, // Store but don't show
-          });
-
-          console.log(
-            `✅ [CodeEditor] Added Rust contract: ${rustContract.name}.rs`
-          );
-        });
-
-        // Add optimized Solidity contract
-        if (optimizedContracts.modifiedSolidity) {
-          contractFiles.push({
-            id: "optimized-solidity",
-            name: `${contractName}_optimized.sol`,
-            content: optimizedContracts.modifiedSolidity,
-            language: "solidity",
-            path: `contracts/${contractName}_optimized.sol`,
-            type: "solidity",
-            canCompile: true,
-            canDeploy: true,
-            dependencies: optimizedContracts.rustContracts.map(
-              (rustContract) =>
-                `rust-${rustContract.functionName || rustContract.name}`
-            ),
-            isOptimized: true,
-          });
-
-          console.log("✅ [CodeEditor] Added optimized Solidity contract");
-        } else {
-          console.warn("⚠️ [CodeEditor] No optimized Solidity content found");
-        }
-
-        // Set gas comparison data
-        setGasComparison({
-          original: originalContract.gasEstimation,
-          estimated: {
-            totalSavings: optimizedContracts.totalEstimatedSavings,
-            aiGenerated: optimizedContracts.aiGenerated,
-            rustContracts: optimizedContracts.rustContracts.map((r) => ({
-              name: r.name,
-              estimatedGasSavings: r.estimatedGasSavings,
-              optimizations: r.optimizations,
-            })),
-          },
-        });
-      }
-
-      // Load contract files into store
-      console.log("📁 [CodeEditor] Loading contract files:", contractFiles);
-      loadContractFiles({
-        files: contractFiles,
-        contractName,
-        highGasFunctions,
-      });
-
-      console.log("🎯 [CodeEditor] Files loaded successfully");
-    } else {
-      console.warn("⚠️ [CodeEditor] No original contract data found");
-    }
-  }, [
-    originalContract,
-    optimizedContracts,
-    contractName,
-    loadContractFiles,
-    setGasComparison,
-    highGasFunctions,
-  ]);
+      loadContractFiles,
+      setGasComparison,
+      highGasFunctions,
+    ]);
 
   // Initialize wallet
   useEffect(() => {
@@ -297,9 +347,6 @@ export default function CodeEditor() {
               );
             }
           });
-
-          // Update file content with deployed addresses
-          updateFileContent(fileId, updatedContent);
 
           // Recompile with updated addresses
           const recompileResult = await compileContract(
@@ -470,8 +517,6 @@ export default function CodeEditor() {
     setEditorStats(stats);
   }, [files, compilationResults, deploymentResults]);
 
-
-  
   // Calculate gas savings summary
   const getGasSavingsSummary = () => {
     if (!gasComparison?.actual) return null;
@@ -856,7 +901,6 @@ export default function CodeEditor() {
               </span>
             </div>
           )}
-          {/* Network status */}
           {/* Memory usage (simulated) */}
           <span className="text-gray-400">
             Memory: {(editorStats.totalCharacters / 1024).toFixed(1)}KB
@@ -870,13 +914,7 @@ export default function CodeEditor() {
             m
           </span>
           {/* Encoding and branding */}
-          <span className="text-gray-400">UTF-8</span>{" "}
-          {/* {walletAddress && (
-            <span className="flex items-center gap-1 text-green-400">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              Connected
-            </span>
-          )} */}
+          <span className="text-gray-400">UTF-8</span>
         </div>
       </div>
     </div>
