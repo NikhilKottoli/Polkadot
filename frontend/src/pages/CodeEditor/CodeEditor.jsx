@@ -6,11 +6,11 @@ import { MonacoEditor } from "./components/MonacoEditor";
 import { FileTabs } from "./components/FileTabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Download, 
-  ExternalLink, 
-  Eye, 
-  FileText, 
+import {
+  Download,
+  ExternalLink,
+  Eye,
+  FileText,
   ArrowLeft,
   Code,
   Rocket,
@@ -18,85 +18,95 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  Copy
+  Copy,
 } from "lucide-react";
 import { useEditorStore } from "@/store/editorStore";
-import { compileContract, deployContract } from '../../utils/contractService';
-import { RustCompilationService } from '../../services/rustCompilationService';
+import { compileContract, deployContract } from "../../utils/contractService";
+import { RustCompilationService } from "../../services/rustCompilationService";
 
 export default function CodeEditor() {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // State for contract operations
   const [compilationResults, setCompilationResults] = useState({});
   const [deploymentResults, setDeploymentResults] = useState({});
   const [loadingStates, setLoadingStates] = useState({});
   const [walletAddress, setWalletAddress] = useState(null);
-  
+
   // Extract data from location state
-  const { 
-    originalContract, 
-    optimizedContracts, 
-    contractName, 
-    highGasFunctions 
+  const {
+    originalContract,
+    optimizedContracts,
+    contractName,
+    highGasFunctions,
   } = location.state || {};
 
-  const { 
-    files, 
-    openFile, 
-    getActiveFile, 
-    loadContractFiles, 
-    setDeployedContract, 
+  const {
+    files,
+    openFile,
+    getActiveFile,
+    loadContractFiles,
+    setDeployedContract,
     updateContractWithAddress,
     setGasComparison,
     gasComparison,
-    deployedContracts 
+    deployedContracts,
   } = useEditorStore();
 
   // Initialize files from contract generation data
   useEffect(() => {
-    console.log("🔄 [CodeEditor] Initializing files...", { originalContract, optimizedContracts, contractName });
-    
+    console.log("🔄 [CodeEditor] Initializing files...", {
+      originalContract,
+      optimizedContracts,
+      contractName,
+    });
+
     if (originalContract) {
       // Clear existing files and load contract files
       const contractFiles = [];
-      
+
       // Add main Solidity contract
       contractFiles.push({
-        id: 'main-solidity',
+        id: "main-solidity",
         name: `${contractName}.sol`,
         content: originalContract.solidity,
-        language: 'solidity',
+        language: "solidity",
         path: `contracts/${contractName}.sol`,
-        type: 'solidity',
+        type: "solidity",
         canCompile: true,
         canDeploy: true,
         dependencies: [],
-        originalGas: originalContract.gasEstimation?.functionGasEstimates || {}
+        originalGas: originalContract.gasEstimation?.functionGasEstimates || {},
       });
-      
+
       console.log("✅ [CodeEditor] Added main Solidity contract");
 
       // Add optimized contracts if available
       if (optimizedContracts) {
-        console.log("🦀 [CodeEditor] Adding Rust contracts:", optimizedContracts.rustContracts);
-        
+        console.log(
+          "🦀 [CodeEditor] Adding Rust contracts:",
+          optimizedContracts.rustContracts
+        );
+
         optimizedContracts.rustContracts.forEach((rustContract, index) => {
           // Validate rust contract data
           if (!rustContract.name || !rustContract.code) {
-            console.warn("⚠️ [CodeEditor] Invalid Rust contract:", rustContract);
+            console.warn(
+              "⚠️ [CodeEditor] Invalid Rust contract:",
+              rustContract
+            );
             return;
           }
-          
+
           // Add Rust contract (only .rs files, hide config files)
           contractFiles.push({
             id: `rust-${rustContract.functionName || rustContract.name}`, // Use function name for ID
             name: `${rustContract.name}.rs`,
             content: rustContract.code,
-            language: 'rust',
+            language: "rust",
             path: `rust/${rustContract.name}.rs`,
-            type: 'rust',
+            type: "rust",
             canCompile: true,
             canDeploy: true,
             dependencies: [],
@@ -104,27 +114,32 @@ export default function CodeEditor() {
             estimatedGasSavings: rustContract.estimatedGasSavings,
             optimizations: rustContract.optimizations,
             cargoToml: rustContract.cargoToml, // Store but don't show
-            makefile: rustContract.makefile    // Store but don't show
+            makefile: rustContract.makefile, // Store but don't show
           });
-          
-          console.log(`✅ [CodeEditor] Added Rust contract: ${rustContract.name}.rs`);
+
+          console.log(
+            `✅ [CodeEditor] Added Rust contract: ${rustContract.name}.rs`
+          );
         });
 
         // Add optimized Solidity contract
         if (optimizedContracts.modifiedSolidity) {
           contractFiles.push({
-            id: 'optimized-solidity',
+            id: "optimized-solidity",
             name: `${contractName}_optimized.sol`,
             content: optimizedContracts.modifiedSolidity,
-            language: 'solidity',
+            language: "solidity",
             path: `contracts/${contractName}_optimized.sol`,
-            type: 'solidity',
+            type: "solidity",
             canCompile: true,
             canDeploy: true,
-            dependencies: optimizedContracts.rustContracts.map((rustContract) => `rust-${rustContract.functionName || rustContract.name}`),
-            isOptimized: true
+            dependencies: optimizedContracts.rustContracts.map(
+              (rustContract) =>
+                `rust-${rustContract.functionName || rustContract.name}`
+            ),
+            isOptimized: true,
           });
-          
+
           console.log("✅ [CodeEditor] Added optimized Solidity contract");
         } else {
           console.warn("⚠️ [CodeEditor] No optimized Solidity content found");
@@ -136,12 +151,12 @@ export default function CodeEditor() {
           estimated: {
             totalSavings: optimizedContracts.totalEstimatedSavings,
             aiGenerated: optimizedContracts.aiGenerated,
-            rustContracts: optimizedContracts.rustContracts.map(r => ({
+            rustContracts: optimizedContracts.rustContracts.map((r) => ({
               name: r.name,
               estimatedGasSavings: r.estimatedGasSavings,
-              optimizations: r.optimizations
-            }))
-          }
+              optimizations: r.optimizations,
+            })),
+          },
         });
       }
 
@@ -150,21 +165,30 @@ export default function CodeEditor() {
       loadContractFiles({
         files: contractFiles,
         contractName,
-        highGasFunctions
+        highGasFunctions,
       });
-      
+
       console.log("🎯 [CodeEditor] Files loaded successfully");
     } else {
       console.warn("⚠️ [CodeEditor] No original contract data found");
     }
-  }, [originalContract, optimizedContracts, contractName, loadContractFiles, setGasComparison, highGasFunctions]);
+  }, [
+    originalContract,
+    optimizedContracts,
+    contractName,
+    loadContractFiles,
+    setGasComparison,
+    highGasFunctions,
+  ]);
 
   // Initialize wallet
   useEffect(() => {
     const initWallet = async () => {
       if (window.ethereum) {
         try {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          const accounts = await window.ethereum.request({
+            method: "eth_accounts",
+          });
           if (accounts.length > 0) {
             setWalletAddress(accounts[0]);
           }
@@ -179,7 +203,9 @@ export default function CodeEditor() {
   const handleConnectWallet = async () => {
     if (window.ethereum) {
       try {
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
         setWalletAddress(accounts[0]);
       } catch (error) {
         console.error("Wallet connection failed:", error);
@@ -191,77 +217,82 @@ export default function CodeEditor() {
   };
 
   const handleCompile = async (fileId) => {
-    const file = files.find(f => f.id === fileId);
+    const file = files.find((f) => f.id === fileId);
     if (!file) return;
 
-    setLoadingStates(prev => ({ ...prev, [`compile-${fileId}`]: true }));
+    setLoadingStates((prev) => ({ ...prev, [`compile-${fileId}`]: true }));
 
     try {
-      if (file.type === 'solidity') {
-        const result = await compileContract(file.content, file.name.replace('.sol', ''));
-        setCompilationResults(prev => ({
-          ...prev,
-          [fileId]: result
-        }));
-      } else if (file.type === 'rust') {
-        const result = await RustCompilationService.compileRustContract(
-          file.content, 
-          file.name.replace('.rs', '')
+      if (file.type === "solidity") {
+        const result = await compileContract(
+          file.content,
+          file.name.replace(".sol", "")
         );
-        setCompilationResults(prev => ({
+        setCompilationResults((prev) => ({
           ...prev,
-          [fileId]: result
+          [fileId]: result,
+        }));
+      } else if (file.type === "rust") {
+        const result = await RustCompilationService.compileRustContract(
+          file.content,
+          file.name.replace(".rs", "")
+        );
+        setCompilationResults((prev) => ({
+          ...prev,
+          [fileId]: result,
         }));
       }
     } catch (error) {
-      setCompilationResults(prev => ({
+      setCompilationResults((prev) => ({
         ...prev,
-        [fileId]: { success: false, error: error.message }
+        [fileId]: { success: false, error: error.message },
       }));
     } finally {
-      setLoadingStates(prev => ({ ...prev, [`compile-${fileId}`]: false }));
+      setLoadingStates((prev) => ({ ...prev, [`compile-${fileId}`]: false }));
     }
   };
 
   const handleDeploy = async (fileId) => {
-    const file = files.find(f => f.id === fileId);
+    const file = files.find((f) => f.id === fileId);
     const compilation = compilationResults[fileId];
-    
+
     if (!file || !compilation?.success || !walletAddress) {
-      alert('File not compiled or wallet not connected');
+      alert("File not compiled or wallet not connected");
       return;
     }
 
     // Check dependencies (Rust contracts must be deployed before Solidity)
     if (file.dependencies && file.dependencies.length > 0) {
-      const undeployedDeps = file.dependencies.filter(depId => 
-        !deployedContracts[depId]?.address
+      const undeployedDeps = file.dependencies.filter(
+        (depId) => !deployedContracts[depId]?.address
       );
       if (undeployedDeps.length > 0) {
-        const depNames = undeployedDeps.map(depId => {
-          const depFile = files.find(f => f.id === depId);
-          return depFile?.name || depId;
-        }).join(', ');
+        const depNames = undeployedDeps
+          .map((depId) => {
+            const depFile = files.find((f) => f.id === depId);
+            return depFile?.name || depId;
+          })
+          .join(", ");
         alert(`Please deploy Rust dependencies first: ${depNames}`);
         return;
       }
     }
 
-    setLoadingStates(prev => ({ ...prev, [`deploy-${fileId}`]: true }));
+    setLoadingStates((prev) => ({ ...prev, [`deploy-${fileId}`]: true }));
 
     try {
       let result;
-      if (file.type === 'solidity') {
+      if (file.type === "solidity") {
         // For optimized Solidity contracts, update with Rust contract addresses first
         if (file.isOptimized && file.dependencies?.length > 0) {
           let updatedContent = file.content;
-          
+
           // Update contract addresses in the Solidity code
-          file.dependencies.forEach(rustFileId => {
+          file.dependencies.forEach((rustFileId) => {
             const rustDeployment = deployedContracts[rustFileId];
             if (rustDeployment?.address) {
               updatedContent = updatedContent.replace(
-                'address(0x0000000000000000000000000000000000000000)',
+                "address(0x0000000000000000000000000000000000000000)",
                 rustDeployment.address
               );
             }
@@ -269,75 +300,85 @@ export default function CodeEditor() {
 
           // Update file content with deployed addresses
           updateFileContent(fileId, updatedContent);
-          
+
           // Recompile with updated addresses
-          const recompileResult = await compileContract(updatedContent, file.name.replace('.sol', ''));
+          const recompileResult = await compileContract(
+            updatedContent,
+            file.name.replace(".sol", "")
+          );
           if (!recompileResult.success) {
-            throw new Error('Failed to recompile with Rust contract addresses');
+            throw new Error("Failed to recompile with Rust contract addresses");
           }
-          
+
           result = await deployContract(
-            recompileResult.abi, 
-            recompileResult.bytecode, 
-            walletAddress, 
-            file.name.replace('.sol', '')
+            recompileResult.abi,
+            recompileResult.bytecode,
+            walletAddress,
+            file.name.replace(".sol", "")
           );
         } else {
           result = await deployContract(
-            compilation.abi, 
-            compilation.bytecode, 
-            walletAddress, 
-            file.name.replace('.sol', '')
+            compilation.abi,
+            compilation.bytecode,
+            walletAddress,
+            file.name.replace(".sol", "")
           );
         }
-      } else if (file.type === 'rust') {
+      } else if (file.type === "rust") {
         result = await RustCompilationService.deployRustContract(
           compilation.bytecode,
           walletAddress,
-          file.name.replace('.rs', '')
+          file.name.replace(".rs", "")
         );
       }
-      
+
       if (result.success) {
         // Store deployment info
-        setDeployedContract(fileId, result.contractAddress, result.transactionHash);
-        setDeploymentResults(prev => ({
+        setDeployedContract(
+          fileId,
+          result.contractAddress,
+          result.transactionHash
+        );
+        setDeploymentResults((prev) => ({
           ...prev,
-          [fileId]: result
+          [fileId]: result,
         }));
 
         // If this is a Rust contract, calculate actual gas savings
-        if (file.type === 'rust') {
+        if (file.type === "rust") {
           await calculateActualGasSavings(file, result.contractAddress);
         }
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
-      setDeploymentResults(prev => ({
+      setDeploymentResults((prev) => ({
         ...prev,
-        [fileId]: { success: false, error: error.message }
+        [fileId]: { success: false, error: error.message },
       }));
     } finally {
-      setLoadingStates(prev => ({ ...prev, [`deploy-${fileId}`]: false }));
+      setLoadingStates((prev) => ({ ...prev, [`deploy-${fileId}`]: false }));
     }
   };
 
   const calculateActualGasSavings = async (rustFile, contractAddress) => {
     try {
       // Get original gas consumption for this function
-      const functionName = rustFile.functionName || rustFile.name.replace('_optimized.rs', '');
-      const originalGas = gasComparison?.original?.functionGasEstimates?.[functionName]?.estimated;
-      
+      const functionName =
+        rustFile.functionName || rustFile.name.replace("_optimized.rs", "");
+      const originalGas =
+        gasComparison?.original?.functionGasEstimates?.[functionName]
+          ?.estimated;
+
       console.log(`📊 Calculating gas savings for ${functionName}:`, {
         originalGas,
         contractAddress,
-        rustFile: rustFile.name
+        rustFile: rustFile.name,
       });
 
       // Estimate gas for the deployed Rust contract with original gas context
       const gasResult = await RustCompilationService.estimateRustGas(
-        contractAddress, 
+        contractAddress,
         functionName,
         [],
         originalGas
@@ -345,9 +386,9 @@ export default function CodeEditor() {
 
       if (gasResult.success) {
         console.log(`✅ Gas calculation completed:`, gasResult);
-        
+
         // Update gas comparison with actual data
-        setGasComparison(prev => ({
+        setGasComparison((prev) => ({
           ...prev,
           actual: {
             ...prev.actual,
@@ -358,13 +399,13 @@ export default function CodeEditor() {
               actualSavingsPercentage: gasResult.savingsPercentage,
               estimatedSavings: rustFile.estimatedGasSavings,
               contractAddress,
-              message: gasResult.message
-            }
-          }
+              message: gasResult.message,
+            },
+          },
         }));
       }
     } catch (error) {
-      console.error('Failed to calculate actual gas savings:', error);
+      console.error("Failed to calculate actual gas savings:", error);
     }
   };
 
@@ -384,20 +425,81 @@ export default function CodeEditor() {
 
   // Get active file for operations
   const activeFile = getActiveFile();
-  const activeFileCompilation = activeFile ? compilationResults[activeFile.id] : null;
-  const activeFileDeployment = activeFile ? deploymentResults[activeFile.id] : null;
+  const activeFileCompilation = activeFile
+    ? compilationResults[activeFile.id]
+    : null;
+  const activeFileDeployment = activeFile
+    ? deploymentResults[activeFile.id]
+    : null;
+
+  // Add these state variables at the top of your component
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [editorStats, setEditorStats] = useState({
+    totalLines: 0,
+    totalCharacters: 0,
+    filesCount: 0,
+    compiledFiles: 0,
+    deployedFiles: 0,
+  });
+
+  // Add useEffect to update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Add useEffect to calculate editor statistics
+  useEffect(() => {
+    const stats = {
+      totalLines: files.reduce((total, file) => {
+        return total + (file.content?.split("\n").length || 0);
+      }, 0),
+      totalCharacters: files.reduce((total, file) => {
+        return total + (file.content?.length || 0);
+      }, 0),
+      filesCount: files.length,
+      compiledFiles: Object.keys(compilationResults).filter(
+        (fileId) => compilationResults[fileId]?.success
+      ).length,
+      deployedFiles: Object.keys(deploymentResults).filter(
+        (fileId) => deploymentResults[fileId]?.success
+      ).length,
+    };
+    setEditorStats(stats);
+  }, [files, compilationResults, deploymentResults]);
+
+
+  
+  // Calculate gas savings summary
+  const getGasSavingsSummary = () => {
+    if (!gasComparison?.actual) return null;
+
+    const actualSavings = Object.values(gasComparison.actual);
+    const avgSavings =
+      actualSavings.reduce(
+        (sum, data) => sum + (data.actualSavingsPercentage || 0),
+        0
+      ) / actualSavings.length;
+
+    return {
+      avgSavings: avgSavings.toFixed(1),
+      functionsOptimized: actualSavings.length,
+    };
+  };
 
   return (
     <div className=" h-screen overflow-y-hidden w-full  text-white bg-[#0a0a0a] flex flex-col">
       {/* Header */}
-      <div className="border-b border-gray-700 p-4">
+      <div className="border-b border-gray-600/50 bg-gray-200/5 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <img src="logo.svg" alt="Logo" className="h-5"/>
+            <img src="logo.svg" alt="Logo" className="h-5" />
             <p className="font-bold">Polkaflow</p>
             <Badge variant="outline">Editor</Badge>
             {contractName && (
@@ -411,7 +513,7 @@ export default function CodeEditor() {
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center gap-2">
             {/* Wallet Connection */}
             {!walletAddress ? (
@@ -430,8 +532,8 @@ export default function CodeEditor() {
             {activeFile && (
               <>
                 {activeFile.canCompile && (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => handleCompile(activeFile.id)}
                     disabled={loadingStates[`compile-${activeFile.id}`]}
                     variant="outline"
@@ -444,12 +546,15 @@ export default function CodeEditor() {
                     Compile
                   </Button>
                 )}
-                
+
                 {activeFile.canDeploy && (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={() => handleDeploy(activeFile.id)}
-                    disabled={loadingStates[`deploy-${activeFile.id}`] || !activeFileCompilation?.success}
+                    disabled={
+                      loadingStates[`deploy-${activeFile.id}`] ||
+                      !activeFileCompilation?.success
+                    }
                   >
                     {loadingStates[`deploy-${activeFile.id}`] ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -459,12 +564,20 @@ export default function CodeEditor() {
                     Deploy
                   </Button>
                 )}
-                
-                <Button size="sm" variant="ghost" onClick={() => copyToClipboard(activeFile.content)}>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => copyToClipboard(activeFile.content)}
+                >
                   <Copy className="w-4 h-4" />
                 </Button>
-                
-                <Button size="sm" variant="ghost" onClick={() => handleDownload(activeFile)}>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleDownload(activeFile)}
+                >
                   <Download className="w-4 h-4" />
                 </Button>
               </>
@@ -482,11 +595,13 @@ export default function CodeEditor() {
             <div className="flex flex-col gap-2 z-10 bg-none justify-self-end pb-4 max-h-[400px] overflow-y-auto">
               {/* Compilation Status */}
               {activeFileCompilation && (
-                <div className={`p-3 rounded text-xs ${
-                  activeFileCompilation.success 
-                    ? 'bg-green-900/20 text-green-400 border border-green-500/20'
-                    : 'bg-red-900/20 text-red-400 border border-red-500/20'
-                }`}>
+                <div
+                  className={`p-3 rounded text-xs ${
+                    activeFileCompilation.success
+                      ? "bg-green-900/20 text-green-400 border border-green-500/20"
+                      : "bg-red-900/20 text-red-400 border border-red-500/20"
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     {activeFileCompilation.success ? (
                       <CheckCircle className="w-3 h-3" />
@@ -494,25 +609,29 @@ export default function CodeEditor() {
                       <XCircle className="w-3 h-3" />
                     )}
                     <span className="font-medium">
-                      {activeFileCompilation.success ? 'Compiled' : 'Compilation Failed'}
+                      {activeFileCompilation.success
+                        ? "Compiled"
+                        : "Compilation Failed"}
                     </span>
                   </div>
                   <p className="text-xs opacity-80">
-                    {activeFileCompilation.success 
-                      ? (activeFileCompilation.message || 'Compilation successful')
-                      : activeFileCompilation.error
-                    }
+                    {activeFileCompilation.success
+                      ? activeFileCompilation.message ||
+                        "Compilation successful"
+                      : activeFileCompilation.error}
                   </p>
                 </div>
               )}
 
               {/* Deployment Status */}
               {activeFileDeployment && (
-                <div className={`p-3 rounded text-xs ${
-                  activeFileDeployment.success 
-                    ? 'bg-blue-900/20 text-blue-400 border border-blue-500/20'
-                    : 'bg-red-900/20 text-red-400 border border-red-500/20'
-                }`}>
+                <div
+                  className={`p-3 rounded text-xs ${
+                    activeFileDeployment.success
+                      ? "bg-blue-900/20 text-blue-400 border border-blue-500/20"
+                      : "bg-red-900/20 text-red-400 border border-red-500/20"
+                  }`}
+                >
                   <div className="flex items-center gap-2 mb-1">
                     {activeFileDeployment.success ? (
                       <CheckCircle className="w-3 h-3" />
@@ -520,7 +639,9 @@ export default function CodeEditor() {
                       <XCircle className="w-3 h-3" />
                     )}
                     <span className="font-medium">
-                      {activeFileDeployment.success ? 'Deployed' : 'Deployment Failed'}
+                      {activeFileDeployment.success
+                        ? "Deployed"
+                        : "Deployment Failed"}
                     </span>
                   </div>
                   {activeFileDeployment.success ? (
@@ -529,18 +650,27 @@ export default function CodeEditor() {
                       <p>Tx: {activeFileDeployment.transactionHash}</p>
                     </div>
                   ) : (
-                    <p className="text-xs opacity-80">{activeFileDeployment.error}</p>
+                    <p className="text-xs opacity-80">
+                      {activeFileDeployment.error}
+                    </p>
                   )}
                 </div>
               )}
 
               {/* Gas Optimization Info */}
-              {activeFile.type === 'rust' && activeFile.estimatedGasSavings && (
+              {activeFile.type === "rust" && activeFile.estimatedGasSavings && (
                 <div className="p-3 bg-orange-900/20 text-orange-400 border border-orange-500/20 rounded text-xs">
                   <div className="font-medium mb-1">🚀 AI Optimization</div>
                   <div className="space-y-1">
-                    <p>Estimated Gas Savings: <span className="font-bold text-green-400">{activeFile.estimatedGasSavings}</span></p>
-                    <p className="text-xs opacity-80">{activeFile.optimizations}</p>
+                    <p>
+                      Estimated Gas Savings:{" "}
+                      <span className="font-bold text-green-400">
+                        {activeFile.estimatedGasSavings}
+                      </span>
+                    </p>
+                    <p className="text-xs opacity-80">
+                      {activeFile.optimizations}
+                    </p>
                   </div>
                 </div>
               )}
@@ -552,8 +682,16 @@ export default function CodeEditor() {
                   <div className="space-y-2">
                     <div>
                       <span className="text-gray-400">AI Generated:</span>
-                      <span className={`ml-2 ${gasComparison.estimated?.aiGenerated ? 'text-green-400' : 'text-yellow-400'}`}>
-                        {gasComparison.estimated?.aiGenerated ? '✓ Gemini AI' : '⚠ Fallback'}
+                      <span
+                        className={`ml-2 ${
+                          gasComparison.estimated?.aiGenerated
+                            ? "text-green-400"
+                            : "text-yellow-400"
+                        }`}
+                      >
+                        {gasComparison.estimated?.aiGenerated
+                          ? "✓ Gemini AI"
+                          : "⚠ Fallback"}
                       </span>
                     </div>
                     <div>
@@ -562,31 +700,53 @@ export default function CodeEditor() {
                         {gasComparison.estimated?.totalSavings || 0}%
                       </span>
                     </div>
-                    {gasComparison.actual && Object.keys(gasComparison.actual).length > 0 && (
-                      <div className="pt-2 border-t border-purple-500/20">
-                        <div className="text-gray-300 font-medium mb-1">🎯 Deployed Results:</div>
-                        {Object.entries(gasComparison.actual).map(([fileId, data]) => (
-                          <div key={fileId} className="text-xs space-y-1 mb-2">
-                            <div className="font-medium text-blue-300">{data.functionName}</div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-400">Original:</span>
-                              <span className="text-red-300">{data.originalGas?.toLocaleString()} gas</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-400">Optimized:</span>
-                              <span className="text-green-300">{data.deployedGas?.toLocaleString()} gas</span>
-                            </div>
-                            <div className="flex justify-between font-bold">
-                              <span className="text-gray-400">Actual Savings:</span>
-                              <span className="text-green-400">{data.actualSavingsPercentage}%</span>
-                            </div>
-                            <div className="text-xs text-gray-500 italic">
-                              vs {data.estimatedSavings} estimated
-                            </div>
+                    {gasComparison.actual &&
+                      Object.keys(gasComparison.actual).length > 0 && (
+                        <div className="pt-2 border-t border-purple-500/20">
+                          <div className="text-gray-300 font-medium mb-1">
+                            🎯 Deployed Results:
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {Object.entries(gasComparison.actual).map(
+                            ([fileId, data]) => (
+                              <div
+                                key={fileId}
+                                className="text-xs space-y-1 mb-2"
+                              >
+                                <div className="font-medium text-blue-300">
+                                  {data.functionName}
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">
+                                    Original:
+                                  </span>
+                                  <span className="text-red-300">
+                                    {data.originalGas?.toLocaleString()} gas
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-400">
+                                    Optimized:
+                                  </span>
+                                  <span className="text-green-300">
+                                    {data.deployedGas?.toLocaleString()} gas
+                                  </span>
+                                </div>
+                                <div className="flex justify-between font-bold">
+                                  <span className="text-gray-400">
+                                    Actual Savings:
+                                  </span>
+                                  <span className="text-green-400">
+                                    {data.actualSavingsPercentage}%
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 italic">
+                                  vs {data.estimatedSavings} estimated
+                                </div>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
@@ -601,7 +761,9 @@ export default function CodeEditor() {
                   </div>
                 )}
                 {activeFile.isOptimized && (
-                  <div className="text-orange-400 mt-1">🔄 Hybrid Solidity+Rust</div>
+                  <div className="text-orange-400 mt-1">
+                    🔄 Hybrid Solidity+Rust
+                  </div>
                 )}
               </div>
             </div>
@@ -616,17 +778,105 @@ export default function CodeEditor() {
           </div>
         </div>
       </div>
-      <div className="bg-pink-500/50 text-white h-6 w-full flex items-center justify-between px-2 text-xs font-medium border-t ">
-        <div className="flex items-center space-x-4">
-          <span className="bg-black/50 px-2 py-0.5 rounded">main</span>
-          <span>✓</span>
-          <span>0 ⚠ 0</span>
+
+      {/* Enhanced Footer */}
+      <div className="bg-gradient-to-r from-pink-500/50 to-purple-500/50 text-white h-8 w-full flex items-center justify-between px-4 text-xs font-medium border-t">
+        <div className="flex items-center space-x-6">
+          {/* Git-like status */}
+          <span className="bg-black/50 px-2 py-0.5 rounded flex items-center gap-1">
+            Polkaflow Editor
+          </span>
+
+          {/* Dynamic file statistics */}
+          <div className="flex items-center space-x-4">
+            <span className="flex items-center gap-1">
+              <FileText className="w-3 h-3" />
+              {editorStats.filesCount} files
+            </span>
+
+            <span className="flex items-center gap-1">
+              <Code className="w-3 h-3" />
+              {editorStats.totalLines.toLocaleString()} lines
+            </span>
+
+            <span className="flex items-center gap-1">
+              <CheckCircle className="w-3 h-3 text-green-400" />
+              {editorStats.compiledFiles} compiled
+            </span>
+
+            <span className="flex items-center gap-1">
+              <Rocket className="w-3 h-3 text-blue-400" />
+              {editorStats.deployedFiles} deployed
+            </span>
+          </div>
+
+          {/* Gas optimization summary */}
+          {getGasSavingsSummary() && (
+            <span className="flex items-center gap-1 text-green-400">
+              ⚡ {getGasSavingsSummary().avgSavings}% avg savings (
+              {getGasSavingsSummary().functionsOptimized} functions)
+            </span>
+          )}
+
+          {/* Compilation status */}
+          <span className="flex items-center gap-1">
+            {Object.values(compilationResults).some(
+              (result) => !result.success
+            ) ? (
+              <>
+                <XCircle className="w-3 h-3 text-red-400" />
+                <span className="text-red-400">
+                  {
+                    Object.values(compilationResults).filter((r) => !r.success)
+                      .length
+                  }{" "}
+                  errors
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-3 h-3 text-green-400" />
+                <span className="text-green-400">✓ All good</span>
+              </>
+            )}
+          </span>
         </div>
-        <div className="flex items-center space-x-4">
-          <span>Ln 1, Col 1</span>
-          <span>Spaces: 2</span>
-          <span>UTF-8</span>
-          <span>JavaScript</span>
+
+        <div className="flex items-center space-x-6">
+          {/* Active file info */}
+          {activeFile && (
+            <div className="flex items-center space-x-3">
+              <span className="text-gray-300">{activeFile.name}</span>
+              <span className="text-gray-400">
+                Ln {activeFile.content?.split("\n").length || 1}, Col{" "}
+                {activeFile.content?.length || 1}
+              </span>
+              <span className="text-gray-400 capitalize">
+                {activeFile.language || activeFile.type}
+              </span>
+            </div>
+          )}
+          {/* Network status */}
+          {/* Memory usage (simulated) */}
+          <span className="text-gray-400">
+            Memory: {(editorStats.totalCharacters / 1024).toFixed(1)}KB
+          </span>
+          {/* Session duration */}
+          <span className="text-gray-400">
+            Session:{" "}
+            {Math.floor(
+              (Date.now() - (window.sessionStartTime || Date.now())) / 60000
+            )}
+            m
+          </span>
+          {/* Encoding and branding */}
+          <span className="text-gray-400">UTF-8</span>{" "}
+          {/* {walletAddress && (
+            <span className="flex items-center gap-1 text-green-400">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              Connected
+            </span>
+          )} */}
         </div>
       </div>
     </div>

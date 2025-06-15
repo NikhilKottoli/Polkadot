@@ -256,7 +256,7 @@ export const MonacoEditor = ({ className = "" }) => {
   return (
     <div
       ref={editorRef}
-      className={`h-full w-full pt-8  ${className}`}
+      className={`h-full w-full py-8  pb-16 ${className}`}
       style={{ minHeight: "400px" }}
     />
   );

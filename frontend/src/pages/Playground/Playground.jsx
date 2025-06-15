@@ -6,16 +6,22 @@ import TopBar from "./components/LayoutComponents/TopBar";
 import FlowBoard from "./components/Board/FlowBoard";
 import { useState } from "react";
 
-
-
 export default function Playground() {
-  const [walletAddress, setWalletAddress] = useState('');
+  const [walletAddress, setWalletAddress] = useState("");
+  const [versionTrigger, setVersionTrigger] = useState(false);
   return (
     <div className="flex flex-1 flex-col  w-full h-screen p-2 bg-[#171717] ">
       <Sheet>
-        <TopBar walletAddress={walletAddress} setWalletAddress={setWalletAddress}/>
+        <TopBar
+          setVersionTrigger={setVersionTrigger}
+          walletAddress={walletAddress}
+          setWalletAddress={setWalletAddress}
+        />
         <div className=" w-full h-full rounded-2xl border-[#2b2b2b] border bg-[#0e0e0e] relative overflow-hidden ">
-          <FlowBoard walletAddress={walletAddress} />
+          <FlowBoard
+            walletAddress={walletAddress}
+            versionTrigger={versionTrigger}
+          />
         </div>
       </Sheet>
     </div>
