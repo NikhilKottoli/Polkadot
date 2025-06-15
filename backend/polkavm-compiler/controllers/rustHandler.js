@@ -108,10 +108,45 @@ async function runMake() {
   }
 }
 
+async function deployPolkaVM(req, res) {
+  console.log("Deploying PolkaVM contract...");
+  try {
+    // Set environment variables
+    process.env.ETH_RPC_URL = "https://testnet-passet-hub-eth-rpc.polkadot.io";
+    process.env.ETH_FROM = "0x8a84E3d8Fa00075FfA69010949dA38f63b7F5fB8";
+
+    // Deploy the contract and get the address
+    const deployCommand = `cast send --account rust-deployer-account --password "123" --create "$(xxd -p -c 99999 contract.polkavm)" --json`;
+    const { stdout: deployStdout } = await execPromise(deployCommand, {
+      cwd: path.resolve(__dirname, "../rust-contract-compiler"),
+      shell: "/bin/bash",
+    });
+
+    // Parse the JSON output to get the contract address
+    const deployResult = JSON.parse(deployStdout);
+    const rustAddress = deployResult.contractAddress;
+
+    res.json({
+      success: true,
+      contractAddress: rustAddress,
+      message: "PolkaVM contract deployed successfully",
+    });
+  } catch (err) {
+    console.error("Deployment error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      message:
+        "Failed to deploy PolkaVM contract. Please check your code syntax and try again.",
+    });
+  }
+}
+
 async function handleRustCode(req, res) {
   const { code } = req.body;
   console.log("Compiling Rust code...");
   try {
+    // First compile the Rust code
     const result = await compileRust(code);
 
     if (!result) {
@@ -122,16 +157,18 @@ async function handleRustCode(req, res) {
       });
     }
 
-    const { message, output } = await runMake(result.path);
+    // Then run make
+    const makeResult = await runMake();
 
-    res.json({ success: true, result: { message, output } });
+    // Finally deploy the contract
+    await deployPolkaVM(req, res);
   } catch (err) {
-    console.error("Compilation error:", err);
+    console.error("Error:", err);
     res.status(500).json({
       success: false,
       error: err.message,
       message:
-        "Failed to compile Rust code. Please check your code syntax and try again.",
+        "Failed to process Rust code. Please check your code syntax and try again.",
     });
   }
 }

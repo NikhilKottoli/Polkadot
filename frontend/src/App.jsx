@@ -1,6 +1,7 @@
 import { Route, Routes, useNavigate } from "react-router";
 import { useEffect, lazy, Suspense } from "react";
 import HeroSection from "./pages/LandingPage/LandingPage";
+import DeployPolkaVM from "./pages/RustDeployer/DeployPolkaVM";
 
 // Lazy load components
 const AuthPage = lazy(() => import("./pages/AuthPage/AuthPage"));
@@ -57,6 +58,8 @@ function App() {
           <Route path="/solidity-generator" element={<SolidityGenerator />} />
           <Route path="/compile" element={<ContractDeployer />} />
           <Route path="/mock" element={<MockXcmTrigger />} />
+          <Route path="/rust" element={<DeployPolkaVM />} />
+
           <Route path="*" element={<h1>404 Not Found</h1>} />
         </Routes>
       </Suspense>
