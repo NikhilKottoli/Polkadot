@@ -1,0 +1,25 @@
+[network]
+name = "XCM_Demo"
+
+[relaychain]
+default_command = "{path-to-polkadot-bin}/polkadot"
+chain = "rococo-local"
+
+[[relaychain.nodes]]
+name = "alice"
+
+[[parachain]]
+id = 1000
+chain = "your_parachain"
+collator = { 
+  command = "{path-to-your-node}/parachain-collator", 
+  args = ["--chain=./chain_spec.json"] 
+}
+
+[[parachain]]
+id = 1001
+chain = "custom2"
+collator = { 
+  command = "{path-to-your-node}/parachain-collator", 
+  args = ["--chain=./chain_spec_1001.json"] 
+}

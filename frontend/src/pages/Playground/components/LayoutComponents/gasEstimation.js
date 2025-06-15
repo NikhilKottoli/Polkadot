@@ -2,6 +2,14 @@
 
 // Solution 1: Use specific version instead of "latest"
 import { solidityCompiler, getCompilerVersions } from "@agnostico/browser-solidity-compiler";
+import { 
+  generateStep1SolidityCode, 
+  generateStep2RustOptimizations, 
+  generateStep3EnhancedSolidity,
+  analyzeGasForRustRecommendations,
+  createNewWorkflow,
+  updateWorkflowStep
+} from '../../../../utils/aiService.js';
 
 const compileSolidityFallback = async (sourceCode, contractName) => {
   try {
@@ -534,6 +542,315 @@ const estimateContractGas = async (solidityCode, contractName) => {
   }
 };
 
+// Enhanced workflow generation with 3 steps
+export const generateSolidityWithWorkflow = async (nodes, edges, contractName, prompt) => {
+  console.log('🔥 [WorkflowService] Starting 3-step generation workflow');
+  
+  // Create new workflow
+  const workflowId = createNewWorkflow(`${contractName} Optimization`, prompt);
+  console.log('📋 [WorkflowService] Created workflow:', workflowId);
+  
+  try {
+    // STEP 1: Generate plain Solidity
+    console.log('🔥 [WorkflowService] Step 1: Generating plain Solidity...');
+    const step1Result = await generateStep1SolidityCode(prompt, workflowId);
+    
+    if (!step1Result.success) {
+      throw new Error(`Step 1 failed: ${step1Result.error}`);
+    }
+    
+    updateWorkflowStep(workflowId, 1, {
+      code: step1Result.contractCode,
+      success: true
+    });
+    
+    // Estimate gas for the plain Solidity
+    console.log('⛽ [WorkflowService] Analyzing gas consumption...');
+    const gasEstimation = await estimateContractGas(step1Result.contractCode, contractName);
+    
+    // Analyze for Rust recommendations
+    const rustRecommendations = analyzeGasForRustRecommendations(gasEstimation);
+    console.log('🦀 [WorkflowService] Rust recommendations:', rustRecommendations);
+    
+    let step2Result = null;
+    let step3Result = null;
+    
+    // STEP 2: Generate Rust optimizations (if recommended)
+    if (rustRecommendations.totalRecommendations > 0) {
+      console.log('🦀 [WorkflowService] Step 2: Generating Rust optimizations...');
+      step2Result = await generateStep2RustOptimizations(
+        step1Result.contractCode, 
+        gasEstimation, 
+        workflowId
+      );
+      
+      updateWorkflowStep(workflowId, 2, {
+        rustContracts: step2Result.rustContracts,
+        highGasFunctions: step2Result.highGasFunctions,
+        success: step2Result.success
+      });
+      
+      // Simulate Rust contract deployment (for demo purposes)
+      const mockRustContractAddress = `0x${Math.random().toString(16).substr(2, 40)}`;
+      console.log('🚀 [WorkflowService] Mock Rust contract address:', mockRustContractAddress);
+      
+      // STEP 3: Generate enhanced Solidity with Rust integration
+      console.log('⚡ [WorkflowService] Step 3: Generating enhanced Solidity...');
+      step3Result = await generateStep3EnhancedSolidity(
+        step1Result.contractCode,
+        step2Result.rustContracts,
+        mockRustContractAddress,
+        workflowId
+      );
+      
+      updateWorkflowStep(workflowId, 3, {
+        enhancedSolidity: step3Result.enhancedSolidity,
+        contractAddress: mockRustContractAddress,
+        success: step3Result.success
+      });
+    } else {
+      console.log('ℹ️ [WorkflowService] No Rust optimizations needed');
+    }
+    
+    return {
+      success: true,
+      workflowId,
+      step1: {
+        solidityCode: step1Result.contractCode,
+        gasEstimation,
+        rustRecommendations
+      },
+      step2: step2Result,
+      step3: step3Result,
+      summary: {
+        totalSteps: rustRecommendations.totalRecommendations > 0 ? 3 : 1,
+        recommendationsCount: rustRecommendations.totalRecommendations,
+        message: rustRecommendations.summary
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ [WorkflowService] Workflow failed:', error);
+    return {
+      success: false,
+      error: error.message,
+      workflowId
+    };
+  }
+};
+
+// Enhanced gas estimation with Rust recommendations
+export const estimateContractGasWithRecommendations = async (solidityCode, contractName) => {
+  try {
+    console.log("⛽ [GasService] Starting enhanced gas estimation with Rust analysis");
+    
+    // Get basic gas estimation
+    const gasEstimation = await estimateContractGas(solidityCode, contractName);
+    
+    // Add Rust recommendations
+    const rustRecommendations = analyzeGasForRustRecommendations(gasEstimation);
+    
+    // Calculate potential savings
+    const totalCurrentGas = Object.values(gasEstimation.functionGasEstimates || {})
+      .reduce((sum, func) => sum + (typeof func.estimated === 'number' ? func.estimated : 0), 0);
+    
+    const totalPotentialSavings = rustRecommendations.recommendations
+      .reduce((sum, rec) => sum + rec.potentialSavings, 0);
+    
+    const enhancedEstimation = {
+      ...gasEstimation,
+      rustAnalysis: {
+        ...rustRecommendations,
+        totalCurrentGas,
+        totalPotentialSavings,
+        percentageSavings: totalCurrentGas > 0 ? ((totalPotentialSavings / totalCurrentGas) * 100).toFixed(1) : 0,
+        costAnalysis: {
+          currentCostETH: (totalCurrentGas * 20e-9).toFixed(6),
+          currentCostUSD: (totalCurrentGas * 20e-9 * 2000).toFixed(2),
+          potentialSavingsETH: (totalPotentialSavings * 20e-9).toFixed(6),
+          potentialSavingsUSD: (totalPotentialSavings * 20e-9 * 2000).toFixed(2)
+        }
+      }
+    };
+    
+    console.log("✅ [GasService] Enhanced gas estimation completed with Rust analysis");
+    return enhancedEstimation;
+    
+  } catch (error) {
+    console.error("❌ [GasService] Enhanced gas estimation failed:", error);
+    return await estimateContractGas(solidityCode, contractName);
+  }
+};
+
+// Enhanced handle generate function with workflow
+export const handleGenerateWithWorkflow = async (type, prompt, nodes, edges, currentProject) => {
+  console.log("🔨 [WorkflowHandler] Starting enhanced generation workflow");
+  
+  if (!currentProject) {
+    throw new Error("No project selected");
+  }
+
+  const projectName = currentProject?.name || "MyContract";
+  const contractName = projectName.replace(/\s+/g, '') || "MyContract";
+  
+  try {
+    if (type === "workflow") {
+      // Use the new 3-step workflow
+      const result = await generateSolidityWithWorkflow(nodes, edges, contractName, prompt);
+      
+      return {
+        success: true,
+        workflowResult: result,
+        contractName,
+        gasAnalysis: result.step1?.gasEstimation,
+        rustRecommendations: result.step1?.rustRecommendations,
+        message: `Generated ${result.summary.totalSteps}-step workflow with ${result.summary.recommendationsCount} Rust optimizations`
+      };
+    } else {
+      // Fallback to original generation
+      const solidityCode = type === "our-algorithm" 
+        ? generateSolidityFromFlowchart(nodes, edges, contractName)
+        : await generateSolidityFromFlowchartAI(nodes, edges, contractName);
+      
+      const gasEstimation = await estimateContractGasWithRecommendations(solidityCode, contractName);
+      
+      return {
+        success: true,
+        solidityCode,
+        gasEstimation,
+        rustRecommendations: gasEstimation.rustAnalysis,
+        contractName
+      };
+    }
+    
+  } catch (error) {
+    console.error("❌ [WorkflowHandler] Generation failed:", error);
+    throw error;
+  }
+};
+
+// UI Component for Rust Recommendations
+export const RustRecommendationCard = ({ recommendations, onOptimizeFunction }) => {
+  if (!recommendations || recommendations.totalRecommendations === 0) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <div className="flex items-center">
+          <span className="text-green-600">✅</span>
+          <h3 className="ml-2 text-lg font-semibold text-green-800">Gas Optimization Status</h3>
+        </div>
+        <p className="text-green-700 mt-2">Your contract is already well-optimized! No Rust optimizations needed.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold text-yellow-800">🦀 Rust Optimization Recommendations</h3>
+        <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm font-medium">
+          {recommendations.totalRecommendations} Functions
+        </span>
+      </div>
+      
+      <p className="text-yellow-700 mb-4">{recommendations.summary}</p>
+      
+      <div className="space-y-3">
+        {recommendations.recommendations.map((rec, index) => (
+          <div key={index} className="bg-white border border-yellow-200 rounded p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-gray-900">{rec.functionName}()</h4>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                rec.recommendationStrength === 'High' 
+                  ? 'bg-red-100 text-red-800' 
+                  : 'bg-orange-100 text-orange-800'
+              }`}>
+                {rec.recommendationStrength} Priority
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-gray-600">Current Gas:</span>
+                <span className="ml-2 font-mono text-red-600">{rec.currentGas.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Estimated Rust Gas:</span>
+                <span className="ml-2 font-mono text-green-600">{rec.estimatedRustGas.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Potential Savings:</span>
+                <span className="ml-2 font-mono text-blue-600">{rec.potentialSavings.toLocaleString()} gas</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Cost Savings:</span>
+                <span className="ml-2 font-mono text-green-600">${rec.costSavingsUSD}</span>
+              </div>
+            </div>
+            
+            <p className="text-gray-600 text-sm mt-2">{rec.reason}</p>
+            
+            <button
+              onClick={() => onOptimizeFunction(rec.functionName)}
+              className="mt-3 bg-blue-600 text-white px-3 py-1 rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Generate Rust Optimization
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Workflow Status Component
+export const WorkflowStatusCard = ({ workflowResult }) => {
+  if (!workflowResult) return null;
+
+  const { step1, step2, step3, summary } = workflowResult;
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+      <h3 className="text-lg font-semibold text-blue-800 mb-3">🔄 Generation Workflow Status</h3>
+      
+      <div className="space-y-3">
+        {/* Step 1 */}
+        <div className="flex items-center space-x-3">
+          <span className="bg-green-100 text-green-800 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">✓</span>
+          <div>
+            <h4 className="font-medium text-gray-900">Step 1: Plain Solidity Generated</h4>
+            <p className="text-gray-600 text-sm">Base contract created with gas analysis</p>
+          </div>
+        </div>
+
+        {/* Step 2 */}
+        {step2 && (
+          <div className="flex items-center space-x-3">
+            <span className="bg-orange-100 text-orange-800 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">🦀</span>
+            <div>
+              <h4 className="font-medium text-gray-900">Step 2: Rust Optimizations Generated</h4>
+              <p className="text-gray-600 text-sm">{step2.rustContracts.length} Rust contracts for high-gas functions</p>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 */}
+        {step3 && (
+          <div className="flex items-center space-x-3">
+            <span className="bg-blue-100 text-blue-800 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">⚡</span>
+            <div>
+              <h4 className="font-medium text-gray-900">Step 3: Enhanced Solidity Generated</h4>
+              <p className="text-gray-600 text-sm">Integrated with Rust contracts for gas optimization</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-blue-200">
+        <p className="text-blue-700 font-medium">{summary.message}</p>
+      </div>
+    </div>
+  );
+};
 
 export {
   compileSolidityRobust as compileSolidity,

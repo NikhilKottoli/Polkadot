@@ -10,6 +10,10 @@ const { pollForEvents, setupEventMonitoring } = require('./utils');
 const fs = require('fs');
 const path = require('path');
 
+// XCM imports
+const { ApiPromise, WsProvider, Keyring } = require('@polkadot/api');
+const { cryptoWaitReady } = require('@polkadot/util-crypto');
+
 const ASSET_HUB_ABI = [
   "function createAsset(string name, string symbol, uint8 decimals) external returns (uint256)",
   "function mintAsset(uint256 assetId, address to, uint256 amount) external",
@@ -33,6 +37,24 @@ const PRIVATE_KEY = "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fce
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const CHAT_ID = "255522477";
+
+// XCM Configuration - UPDATE THESE PORTS TO MATCH YOUR ACTUAL SETUP
+const XCM_CONFIG = {
+  RELAY_CHAIN_WS: 'ws://127.0.0.1:9944',
+  PARACHAIN_1000_WS: 'ws://127.0.0.1:9946', 
+  PARACHAIN_1001_WS: 'ws://127.0.0.1:9947',
+  HRMP_PARAMS: {
+    maxCapacity: 8,        // Max 8 messages in queue
+    maxMessageSize: 1024   // Max 1024 bytes per message
+  }
+};
+
+// XCM API connections
+let xcmConnections = {
+  relayApi: null,
+  para1000Api: null,
+  para1001Api: null
+};
 
 // Store deployed contracts for event monitoring
 const deployedContracts = new Map();
@@ -68,6 +90,250 @@ const checkAssetOwnership = (userAddress, assetId) => {
   const userAssets = userAssetMapping.get(userAddress) || [];
   return userAssets.includes(parseInt(assetId));
 };
+
+// === XCM FUNCTIONALITY ===
+
+// Initialize XCM connections
+async function initXcmConnections() {
+  try {
+    await cryptoWaitReady();
+    
+    if (!xcmConnections.relayApi) {
+      const relayProvider = new WsProvider(XCM_CONFIG.RELAY_CHAIN_WS);
+      xcmConnections.relayApi = await ApiPromise.create({ provider: relayProvider });
+      console.log('✅ Relay chain connected');
+    }
+    
+    if (!xcmConnections.para1000Api) {
+      const para1000Provider = new WsProvider(XCM_CONFIG.PARACHAIN_1000_WS);
+      xcmConnections.para1000Api = await ApiPromise.create({ provider: para1000Provider });
+      console.log('✅ Parachain 1000 connected');
+    }
+    
+    if (!xcmConnections.para1001Api) {
+      const para1001Provider = new WsProvider(XCM_CONFIG.PARACHAIN_1001_WS);
+      xcmConnections.para1001Api = await ApiPromise.create({ provider: para1001Provider });
+      console.log('✅ Parachain 1001 connected');
+    }
+    
+    console.log('✅ All XCM connections initialized');
+    return true;
+  } catch (error) {
+    console.error('❌ XCM connection failed:', error.message);
+    return false;
+  }
+}
+
+// 1. Initialize XCM connections and check status
+app.post('/api/xcm/init', async (req, res) => {
+  try {
+    const success = await initXcmConnections();
+    
+    const connectionStatus = {
+      relayChain: !!xcmConnections.relayApi,
+      parachain1000: !!xcmConnections.para1000Api,
+      parachain1001: !!xcmConnections.para1001Api
+    };
+    
+    res.json({ 
+      success, 
+      message: success ? 'XCM connections initialized successfully' : 'Some connections failed',
+      connections: connectionStatus,
+      endpoints: XCM_CONFIG
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 2. Open HRMP Channels (Bidirectional) - Exact implementation as requested
+app.post('/api/xcm/hrmp/open-bidirectional', async (req, res) => {
+  const { sudoSeed = '//Alice' } = req.body;
+  
+  try {
+    if (!xcmConnections.relayApi) {
+      return res.status(400).json({ success: false, error: 'Relay chain not connected. Call /api/xcm/init first.' });
+    }
+
+    const keyring = new Keyring({ type: 'sr25519' });
+    const sudoKey = keyring.addFromUri(sudoSeed);
+
+    console.log('🔗 Opening HRMP channels bidirectionally...');
+
+    // From Parachain 1000 → 1001
+    const tx1000to1001 = xcmConnections.relayApi.tx.hrmp.hrmpInitOpenChannel(1001, 8, 1024);
+    const hash1000to1001 = await tx1000to1001.signAndSend(sudoKey);
+    console.log(`✅ Channel 1000→1001 opened: ${hash1000to1001}`);
+
+    // From Parachain 1001 → 1000  
+    const tx1001to1000 = xcmConnections.relayApi.tx.hrmp.hrmpInitOpenChannel(1000, 8, 1024);
+    const hash1001to1000 = await tx1001to1000.signAndSend(sudoKey);
+    console.log(`✅ Channel 1001→1000 opened: ${hash1001to1000}`);
+
+    // Accept channels on both sides
+    const acceptTx1000 = xcmConnections.relayApi.tx.hrmp.hrmpAcceptOpenChannel(1000);
+    const acceptHash1000 = await acceptTx1000.signAndSend(sudoKey);
+    console.log(`✅ Channel from 1000 accepted: ${acceptHash1000}`);
+
+    const acceptTx1001 = xcmConnections.relayApi.tx.hrmp.hrmpAcceptOpenChannel(1001);
+    const acceptHash1001 = await acceptTx1001.signAndSend(sudoKey);
+    console.log(`✅ Channel from 1001 accepted: ${acceptHash1001}`);
+
+    sendTelegramMessage(CHAT_ID,
+      `🔄 Bidirectional HRMP Channels Opened!\n` +
+      `📍 Parachain 1000 ↔ Parachain 1001\n` +
+      `🔗 Open: ${hash1000to1001.toString().substring(0,10)}..., ${hash1001to1000.toString().substring(0,10)}...\n` +
+      `✅ Accept: ${acceptHash1000.toString().substring(0,10)}..., ${acceptHash1001.toString().substring(0,10)}...\n` +
+      `📊 Capacity: 8, Max Size: 1024\n` +
+      `🕒 Time: ${new Date().toLocaleString()}`
+    ).catch(console.error);
+
+    res.json({
+      success: true,
+      message: 'Bidirectional HRMP channels opened successfully',
+      channels: {
+        '1000to1001': {
+          open: hash1000to1001.toString(),
+          accept: acceptHash1001.toString()
+        },
+        '1001to1000': {
+          open: hash1001to1000.toString(), 
+          accept: acceptHash1000.toString()
+        }
+      },
+      parameters: { maxCapacity: 8, maxMessageSize: 1024 }
+    });
+  } catch (error) {
+    console.error('HRMP channel setup failed:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. XCM Transfer (Para 1000 → Para 1001) - Exact implementation as requested
+app.post('/api/xcm/transfer', async (req, res) => {
+  const { 
+    fromPara, 
+    toPara, 
+    amount, 
+    accountSeed = '//Alice',
+    asset = 'UNIT'
+  } = req.body;
+  
+  try {
+    const fromApi = fromPara === 1000 ? xcmConnections.para1000Api : xcmConnections.para1001Api;
+    
+    if (!fromApi) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Parachain ${fromPara} not connected. Call /api/xcm/init first.` 
+      });
+    }
+
+    const keyring = new Keyring({ type: 'sr25519' });
+    const alice = keyring.addFromUri(accountSeed);
+
+    console.log(`🚀 Initiating XCM transfer from Para ${fromPara} to Para ${toPara}...`);
+
+    // Exact implementation as requested
+    const tx = fromApi.tx.xTokens.transfer(
+      { Token: asset },  // Native token of your parachain
+      amount,           // Amount in smallest unit (12 decimals)
+      { 
+        V3: { 
+          parents: 1, 
+          interior: { X1: { Parachain: toPara } } 
+        } 
+      },
+      "Unlimited"
+    );
+
+    const hash = await tx.signAndSend(alice);
+    console.log(`✅ XCM transfer submitted: ${hash}`);
+
+    sendTelegramMessage(CHAT_ID,
+      `🚀 XCM Transfer Executed!\n` +
+      `📍 From: Parachain ${fromPara}\n` +
+      `📍 To: Parachain ${toPara}\n` +
+      `💰 Amount: ${amount} ${asset}\n` +
+      `👤 Sender: ${alice.address}\n` +
+      `🔗 Transaction Hash: ${hash}\n` +
+      `📋 XCM Instructions: WithdrawAsset, BuyExecution, DepositAsset\n` +
+      `🕒 Time: ${new Date().toLocaleString()}`
+    ).catch(console.error);
+
+    res.json({
+      success: true,
+      transactionHash: hash.toString(),
+      fromPara,
+      toPara,
+      amount,
+      asset,
+      sender: alice.address,
+      xcmInstructions: ['WithdrawAsset', 'BuyExecution', 'DepositAsset'],
+      multiLocation: { 
+        parents: 1, 
+        interior: { X1: { Parachain: toPara } } 
+      }
+    });
+  } catch (error) {
+    console.error('XCM transfer failed:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 4. Check account balance on destination chain
+app.get('/api/xcm/balance/:paraId/:accountAddress', async (req, res) => {
+  const { paraId, accountAddress } = req.params;
+  
+  try {
+    const api = paraId === '1000' ? xcmConnections.para1000Api : xcmConnections.para1001Api;
+    
+    if (!api) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Parachain ${paraId} not connected` 
+      });
+    }
+
+    const account = await api.query.system.account(accountAddress);
+    const balance = account.data.free.toString();
+    
+    res.json({
+      success: true,
+      parachain: paraId,
+      account: accountAddress,
+      balance: balance,
+      balanceFormatted: `${(parseInt(balance) / Math.pow(10, 12)).toFixed(4)} UNIT`
+    });
+  } catch (error) {
+    console.error('Balance check failed:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5. Get XCM connection status
+app.get('/api/xcm/status', (req, res) => {
+  const connections = {
+    relayChain: !!xcmConnections.relayApi,
+    parachain1000: !!xcmConnections.para1000Api,
+    parachain1001: !!xcmConnections.para1001Api
+  };
+  
+  const allConnected = connections.relayChain && connections.parachain1000 && connections.parachain1001;
+  
+  res.json({
+    success: true,
+    allConnected,
+    connections,
+    config: XCM_CONFIG,
+    readyForDemo: allConnected,
+    message: allConnected ? 
+      'All chains connected - Ready for XCM operations!' : 
+      'Some chains disconnected - Check connections'
+  });
+});
+
+// === END XCM FUNCTIONALITY ===
 
 app.post('/api/compile', async (req, res) => {
   const { code, contractName } = req.body;

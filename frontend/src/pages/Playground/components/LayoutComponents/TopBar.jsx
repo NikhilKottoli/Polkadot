@@ -34,6 +34,8 @@ import {
   Download,
   Code,
   Loader2,
+  Zap,
+  Settings,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import useBoardStore from "../../../../store/store";
@@ -43,7 +45,15 @@ import {
   deployContract,
 } from "../../../../utils/contractService";
 
-import { ContractGenerationService } from "../../../../services/contractGenerationService";
+// Import the new enhanced workflow system
+import {
+  generateSolidityWithWorkflow,
+  estimateContractGasWithRecommendations,
+  RustRecommendationCard,
+  WorkflowStatusCard
+} from "../gasEstimation";
+
+import WorkflowManager from "../../../../components/WorkflowManager";
 
 export default function TopBar({
   walletAddress,
@@ -57,6 +67,7 @@ export default function TopBar({
   const [generatedSolidity, setGeneratedSolidity] = useState("");
   const [showSolidityModal, setShowSolidityModal] = useState(false);
   const [showGenerationChoice, setShowGenerationChoice] = useState(false);
+  const [showWorkflowModal, setShowWorkflowModal] = useState(false); // New workflow modal
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [contractName, setContractName] = useState("");
   const [compilationResult, setCompilationResult] = useState({
@@ -78,10 +89,13 @@ export default function TopBar({
     totalEstimatedCost: null,
     error: null,
   });
-  const [contractGenerationResult, setContractGenerationResult] =
-    useState(null);
-  const [showRustOptimizationOption, setShowRustOptimizationOption] =
-    useState(false);
+  
+  // Enhanced workflow state
+  const [workflowResult, setWorkflowResult] = useState(null);
+  const [rustRecommendations, setRustRecommendations] = useState(null);
+  const [showEnhancedGeneration, setShowEnhancedGeneration] = useState(false);
+  const [currentWorkflowStep, setCurrentWorkflowStep] = useState(1);
+  
   const [editForm, setEditForm] = useState({ name: "", description: "" });
 
   const {
@@ -145,6 +159,75 @@ export default function TopBar({
     setShowWalletDetails(false);
   };
 
+  // Enhanced workflow generation handler
+  const handleEnhancedGenerate = async (type) => {
+    setShowGenerationChoice(false);
+    if (!currentProject) {
+      alert("Please select or create a project first.");
+      return;
+    }
+
+    console.log("🔥 [TopBar] Starting enhanced workflow generation");
+    setIsGeneratingSolidity(true);
+    setWorkflowResult(null);
+    setRustRecommendations(null);
+    
+    // Reset states
+    setCompilationResult({ abi: null, bytecode: null });
+    setDeploymentResult({ address: null, txHash: null });
+    setOperationState({ loading: false, error: null, message: null });
+    
+    const projectName = currentProject.name || "MyContract";
+    const name = projectName.replace(/\s+/g, '') || "MyContract";
+    setContractName(name);
+
+    try {
+      const nodes = getNodes();
+      const edges = getEdges();
+      
+      if (nodes.length === 0) {
+        alert("Cannot generate code from an empty flowchart.");
+        return;
+      }
+
+      // Create a prompt from the flowchart
+      const prompt = `Generate a smart contract for ${name} based on the flowchart with ${nodes.length} nodes`;
+      
+      if (type === "enhanced-workflow") {
+        // Use the new 3-step workflow
+        const result = await generateSolidityWithWorkflow(nodes, edges, name, prompt);
+        
+        if (result.success) {
+          setWorkflowResult(result);
+          setGeneratedSolidity(result.step1.solidityCode);
+          setGasEstimation(result.step1.gasEstimation);
+          setRustRecommendations(result.step1.rustRecommendations);
+          setCurrentWorkflowStep(result.summary.totalSteps);
+          setShowEnhancedGeneration(true);
+          console.log("✅ [TopBar] Enhanced workflow completed successfully");
+        } else {
+          throw new Error(result.error);
+        }
+      } else {
+        // Fallback to standard generation with enhanced gas analysis
+        const solidityCode = generateSolidityFromFlowchart(nodes, edges, name);
+        const gasAnalysis = await estimateContractGasWithRecommendations(solidityCode, name);
+        
+        setGeneratedSolidity(solidityCode);
+        setGasEstimation(gasAnalysis);
+        setRustRecommendations(gasAnalysis.rustAnalysis);
+      }
+
+      setShowSolidityModal(true);
+    } catch (error) {
+      console.error("❌ [TopBar] Enhanced generation failed:", error);
+      alert(`Enhanced generation failed: ${error.message}`);
+    } finally {
+      setIsGeneratingSolidity(false);
+    }
+  };
+
+  // Legacy generation handler (kept for compatibility)
   const handleGenerate = async (type) => {
     setShowGenerationChoice(false);
     if (!currentProject) {
@@ -152,45 +235,60 @@ export default function TopBar({
       return;
     }
 
-    console.log("🔨 [TopBar] Starting contract generation");
+    console.log("🔨 [TopBar] Starting legacy contract generation");
     setIsGeneratingSolidity(true);
+    
     // Reset states
     setCompilationResult({ abi: null, bytecode: null });
     setDeploymentResult({ address: null, txHash: null });
     setOperationState({ loading: false, error: null, message: null });
     
-    // Ensure we have a valid contract name
     const projectName = currentProject.name || "MyContract";
     const name = projectName.replace(/\s+/g, '') || "MyContract";
-    console.log("🏷️ [TopBar] Using contract name:", name);
     setContractName(name);
 
     try {
       const nodes = getNodes();
       const edges = getEdges();
 
-      // Use the ContractGenerationService with AI
-      console.log("🤖 [TopBar] Using AI for contract generation");
-      const result = await ContractGenerationService.generateContract(
-        nodes,
-        edges,
-        name,
-        "ai"
-      );
+      if (nodes.length === 0) {
+        alert("Cannot generate code from an empty flowchart.");
+        return;
+      }
 
-      setGeneratedSolidity(result.original.solidity);
-      setGasEstimation(result.original.gasEstimation);
-      setContractGenerationResult(result);
+      let solidityCode = "";
+      if (type === "our-algorithm") {
+        solidityCode = generateSolidityFromFlowchart(nodes, edges, name);
+      } else {
+        const result = await generateSolidityFromFlowchartAI(nodes, edges, name);
+        if (result.success) {
+          solidityCode = result.contractCode;
+        } else {
+          solidityCode = `// AI generation failed: ${result.error}`;
+        }
+      }
 
-      // Check if we have high gas functions that could benefit from Rust optimization
-      if (result.original.highGasFunctions.length > 0) {
-        setShowRustOptimizationOption(true);
+      setGeneratedSolidity(solidityCode);
+
+      // Perform enhanced gas estimation with Rust recommendations
+      try {
+        const gasAnalysis = await estimateContractGasWithRecommendations(solidityCode, name);
+        setGasEstimation(gasAnalysis);
+        setRustRecommendations(gasAnalysis.rustAnalysis);
+        console.log("⛽ [TopBar] Enhanced gas analysis completed:", gasAnalysis);
+      } catch (gasError) {
+        console.error("Gas estimation failed:", gasError);
+        setGasEstimation({
+          deploymentGas: { estimated: 'unknown', method: 'failed' },
+          functionGasEstimates: {},
+          error: gasError.message || "Gas estimation failed"
+        });
       }
 
       setShowSolidityModal(true);
     } catch (error) {
-      console.error("Contract generation failed:", error);
-      alert(`Contract generation failed: ${error.message}`);
+      console.error("Legacy generation failed:", error);
+      alert(`Generation failed: ${error.message}`);
     } finally {
       setIsGeneratingSolidity(false);
     }
@@ -539,16 +637,36 @@ export default function TopBar({
       </div>
       {showGenerationChoice && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl p-8 text-center max-w-xl mx-4">
+          <div className="bg-card border border-border rounded-2xl p-8 text-center max-w-2xl mx-4">
             <h2 className="text-2xl font-bold mb-4 text-foreground">
-              Flowchart to Contract Generation
+              Smart Contract Generation
             </h2>
             <p className="text-muted-foreground mb-8">
-              Using <span className="text-primary font-semibold"> AI</span> for
-              intelligent contract generation with gas estimation.
+              Choose your preferred generation method with <span className="text-primary font-semibold">AI-powered optimization</span>
             </p>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {/* Enhanced 3-Step Workflow */}
+              <button
+                onClick={() => handleEnhancedGenerate("enhanced-workflow")}
+                className="p-6 bg-gradient-to-br from-purple-500/10 to-blue-500/10 hover:from-purple-500/20 hover:to-blue-500/20 rounded-lg border border-purple-400/40 transition-all group relative overflow-hidden"
+              >
+                <div className="absolute top-2 right-2">
+                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">NEW</Badge>
+                </div>
+                <Zap className="w-10 h-10 mx-auto mb-3 text-purple-400 group-hover:scale-110 transition-transform" />
+                <div className="font-semibold text-foreground">
+                  ⚡ Enhanced Workflow
+                </div>
+                <div className="text-xs text-muted-foreground mt-2">
+                  3-Step AI Optimization
+                </div>
+                <div className="text-xs text-purple-400 mt-1">
+                  Solidity → Rust Analysis → Integration
+                </div>
+              </button>
+
+              {/* Standard AI Generation */}
               <button
                 onClick={() => handleGenerate("ai")}
                 className="p-6 bg-primary/10 hover:bg-primary/20 rounded-lg border border-primary/30 transition-colors group"
@@ -558,10 +676,11 @@ export default function TopBar({
                   🚀 AI Generator
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
-                  AI + Gas Analysis
+                  Standard AI + Gas Analysis
                 </div>
               </button>
 
+              {/* Template Logic */}
               <button
                 onClick={() => handleGenerate("our-algorithm")}
                 className="p-6 bg-secondary/10 hover:bg-secondary/20 rounded-lg border border-secondary/30 transition-colors group"
@@ -575,38 +694,85 @@ export default function TopBar({
                 </div>
               </button>
             </div>
-            <div className="flex items-center justify-center gap-2 mb-6 mt-16">
+
+            {/* Features Info */}
+            <div className="flex items-center justify-center gap-2 mb-6">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">
                       <Info className="w-4 h-4" />
-                      Implementation Features
+                      Enhanced Features
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-xs">
                     <div className="space-y-2">
                       <div className="font-semibold text-sm">
-                        ✅ Available Features:
+                        ✨ Enhanced Workflow Features:
                       </div>
                       <div className="space-y-1 text-xs">
-                        <div>• Gemini AI contract generation</div>
-                        <div>• Gas estimation & analysis</div>
-                        <div>• AI-powered Rust optimization</div>
-                        <div>• Gas comparison & savings</div>
+                        <div>• 🔥 Step 1: Generate plain Solidity</div>
+                        <div>• 🦀 Step 2: Analyze & create Rust optimizations</div>
+                        <div>• ⚡ Step 3: Enhanced Solidity with Rust integration</div>
+                        <div>• 💰 Real-time cost savings analysis</div>
+                        <div>• 📊 Gas optimization recommendations</div>
+                        <div>• 💾 Workflow persistence in local storage</div>
                       </div>
                     </div>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <Button
-              onClick={() => setShowGenerationChoice(false)}
-              variant="ghost"
-              className="w-full mt-8 "
-            >
-              Cancel
-            </Button>
+
+            <div className="flex justify-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowGenerationChoice(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowGenerationChoice(false);
+                  setShowWorkflowModal(true);
+                }}
+                className="gap-2"
+              >
+                <Settings className="w-4 h-4" />
+                Advanced Workflow
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Workflow Modal */}
+      {showWorkflowModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h2 className="text-xl font-bold text-gray-900">Advanced Smart Contract Workflow</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowWorkflowModal(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="max-h-[80vh] overflow-auto">
+              <WorkflowManager 
+                initialPrompt={`Generate a smart contract for ${currentProject?.name || 'MyContract'} based on the flowchart with ${getNodes().length} nodes`}
+                onWorkflowComplete={(result) => {
+                  setWorkflowResult(result);
+                  setGeneratedSolidity(result.step1?.contractCode || result.step3?.enhancedSolidity || '');
+                  setGasEstimation(result.gasAnalysis);
+                  setShowWorkflowModal(false);
+                  setShowSolidityModal(true);
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

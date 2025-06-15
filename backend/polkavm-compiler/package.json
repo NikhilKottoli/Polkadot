@@ -13,6 +13,10 @@
   "dependencies": {
     "@parity/resolc": "^0.2.0",
     "@parity/revive": "^0.0.21",
+    "@polkadot/api": "^10.11.2",
+    "@polkadot/util": "^12.6.2",
+    "@polkadot/util-crypto": "^12.6.2",
+    "axios": "^1.10.0",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",

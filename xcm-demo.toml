@@ -1,0 +1,24 @@
+[settings]
+timeout = 120
+
+[relaychain]
+chain = "rococo-local"
+default_command = "polkadot"
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+
+[[parachains]]
+id = 100
+command = "polkadot-parachain"
+[parachains.collator]
+name = "collator01"
+
+[[parachains]]
+id = 101
+command = "polkadot-parachain"
+[parachains.collator]
+name = "collator02"
