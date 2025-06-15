@@ -9,7 +9,7 @@ const { compile } = require("@parity/resolc"); // Changed import
 const { pollForEvents, setupEventMonitoring } = require("./utils");
 const fs = require("fs");
 const path = require("path");
-const { compileRust } = require("./controllers/rustHandler");
+const { handleRustCode } = require("./controllers/rustHandler");
 
 const ASSET_HUB_ABI = [
   "function createAsset(string name, string symbol, uint8 decimals) external returns (uint256)",
@@ -808,21 +808,7 @@ app.get("/api/getAllAssets/:contractAddress", async (req, res) => {
   }
 });
 
-app.post("/api/rust/compile", async (req, res) => {
-  const { code } = req.body;
-  console.log("Compiling Rust code...");
-  try {
-    const result = await compileRust(code);
-    res.json({ success: true, result });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: err.message,
-      message:
-        "Failed to compile Rust code. Please check your code syntax and try again.",
-    });
-  }
-});
+app.post("/api/rust/compile", handleRustCode);
 
 // Handle graceful shutdown
 process.on("SIGTERM", cleanup);

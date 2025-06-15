@@ -1,5 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const { exec } = require("child_process");
+const util = require("util");
+const execPromise = util.promisify(exec);
 
 async function compileRust(code) {
   try {
@@ -10,7 +13,7 @@ async function compileRust(code) {
     }
 
     const filePath = path.join(dirPath, "src/main.rs");
-    
+
     // Delete file content if it exists
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -59,7 +62,7 @@ pub extern "C" fn call() {
     // Note for more complex input, sol! macro can be used to encod and decode input and output
     // https://docs.rs/alloy-core/0.8.24/alloy_core/sol_types/macro.sol.html
     let n = u32::from_be_bytes(input);
-    let result = OptimisedContract(n);
+    let result = optimised_contract(n);
 
     // pad the result to 32 byte
     let mut output = [0u8; 32];
@@ -84,6 +87,53 @@ pub extern "C" fn call() {
   }
 }
 
-module.exports = { compileRust };
+async function runMake() {
+  try {
+    const { stdout, stderr } = await execPromise("make", {
+      cwd: path.resolve(__dirname, "../rust-contract-compiler"),
+      shell: "/bin/bash",
+    });
 
+    if (stderr) {
+      console.log("Make stderr:", stderr);
+    }
 
+    return {
+      message: "Make command executed successfully",
+      output: stdout,
+    };
+  } catch (error) {
+    console.error("Make error:", error);
+    throw new Error(`Failed to run make command: ${error.message}`);
+  }
+}
+
+async function handleRustCode(req, res) {
+  const { code } = req.body;
+  console.log("Compiling Rust code...");
+  try {
+    const result = await compileRust(code);
+
+    if (!result) {
+      return res.status(500).json({
+        success: false,
+        error: "Failed to compile Rust code",
+        message: "Please check your code syntax and try again.",
+      });
+    }
+
+    const { message, output } = await runMake(result.path);
+
+    res.json({ success: true, result: { message, output } });
+  } catch (err) {
+    console.error("Compilation error:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      message:
+        "Failed to compile Rust code. Please check your code syntax and try again.",
+    });
+  }
+}
+
+module.exports = { handleRustCode };
