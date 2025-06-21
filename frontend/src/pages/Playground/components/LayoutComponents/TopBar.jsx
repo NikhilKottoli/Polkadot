@@ -338,7 +338,6 @@ export default function TopBar({
 
   const handleSave = async () => {
     if (!currentProject || !walletAddress) {
-      alert("Project and wallet must be selected.");
       return;
     }
 

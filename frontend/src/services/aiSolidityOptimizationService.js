@@ -59,18 +59,6 @@ Please generate the complete optimized Solidity contract code.
     try {
       console.log("🤖 [AI] Calling Gemini API for Solidity optimization...");
       
-      // TODO: Replace with actual Gemini API call
-      // const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${GEMINI_API_KEY}`
-      //   },
-      //   body: JSON.stringify({
-      //     contents: [{ parts: [{ text: prompt }] }]
-      //   })
-      // });
-      
       // Simulate AI call
       await new Promise(resolve => setTimeout(resolve, 2000));
       

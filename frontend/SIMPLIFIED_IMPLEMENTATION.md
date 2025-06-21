@@ -54,7 +54,7 @@ The system uses **Gemini AI** for contract generation and optimization with hard
 export const API_CONFIG = {
   GEMINI: {
     BASE_URL: 'https://generativelanguage.googleapis.com/v1beta',
-    API_KEY: 'AIzaSyANwL7_uwatlyvU3wDyGcFwoSSkpkdBEhY',
+    API_KEY: '',
     MODEL: 'gemini-1.5-flash'
   },
   POLKADOT: {

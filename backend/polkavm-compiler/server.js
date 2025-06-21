@@ -4,7 +4,7 @@ const cors = require("cors");
 const Flowchart = require("./models/FlowChart");
 const { connectDB, clearDatabase } = require("./database");
 const ethers = require("ethers");
-const { sendTelegramMessage } = require("../polkaflow-telegram-bot");
+// const { sendTelegramMessage } = require("../polkaflow-telegram-bot");
 const { compile } = require("@parity/resolc"); // Changed import
 const { pollForEvents, setupEventMonitoring } = require("./utils");
 const fs = require("fs");
@@ -30,11 +30,9 @@ connectDB();
 
 // Configure Polkadot AssetHub connection
 const RPC_URL = "https://testnet-passet-hub-eth-rpc.polkadot.io";
-const PRIVATE_KEY =
-  "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fcee2811";
+const PRIVATE_KEY ="";
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
-const CHAT_ID = "255522477";
 
 // Store deployed contracts for event monitoring
 const deployedContracts = new Map();
@@ -188,16 +186,16 @@ app.post("/api/deploy", async (req, res) => {
     setupEventMonitoring(contractAddress, abi, contractName || "Unknown");
 
     // Send Telegram notification for deployment
-    sendTelegramMessage(
-      CHAT_ID,
-      `✅ Deployment Successful!\n` +
-        `📍 Contract: ${contractName || "Unknown"}\n` +
-        `🔗 Address: ${contractAddress}\n` +
-        `💰 Transaction Hash: ${transactionHash}\n` +
-        `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch((error) => {
-      console.error("❌ Failed to send deployment notification:", error);
-    });
+    // sendTelegramMessage(
+    //   CHAT_ID,
+    //   `✅ Deployment Successful!\n` +
+    //     `📍 Contract: ${contractName || "Unknown"}\n` +
+    //     `🔗 Address: ${contractAddress}\n` +
+    //     `💰 Transaction Hash: ${transactionHash}\n` +
+    //     `🕒 Time: ${new Date().toLocaleString()}`
+    // ).catch((error) => {
+    //   console.error("❌ Failed to send deployment notification:", error);
+    // });
 
     res.json({
       success: true,
@@ -292,7 +290,7 @@ app.post("/api/telegram/send", async (req, res) => {
 
     console.log(`📨 Sending Telegram message to chat ${chatId}:`, message);
 
-    const result = await sendTelegramMessage(chatId, message);
+    // const result = await sendTelegramMessage(chatId, message);
 
     console.log("✅ Telegram message sent successfully:", result);
 
@@ -441,18 +439,18 @@ app.post("/api/createAsset", async (req, res) => {
 
     console.log(`Asset ${assetId} created for user ${userAddress}`);
 
-    sendTelegramMessage(
-      CHAT_ID,
-      `✅ Asset Created!\n` +
-        `📍 Name: ${name}\n` +
-        `🔗 Symbol: ${symbol}\n` +
-        `👤 For User: ${userAddress}\n` +
-        `🆔 Asset ID: ${assetId}\n` +
-        `💰 Transaction Hash: ${tx.hash}\n` +
-        `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch((error) => {
-      console.error("❌ Failed to send asset creation notification:", error);
-    });
+    // sendTelegramMessage(
+    //   CHAT_ID,
+    //   `✅ Asset Created!\n` +
+    //     `📍 Name: ${name}\n` +
+    //     `🔗 Symbol: ${symbol}\n` +
+    //     `👤 For User: ${userAddress}\n` +
+    //     `🆔 Asset ID: ${assetId}\n` +
+    //     `💰 Transaction Hash: ${tx.hash}\n` +
+    //     `🕒 Time: ${new Date().toLocaleString()}`
+    // ).catch((error) => {
+    //   console.error("❌ Failed to send asset creation notification:", error);
+    // });
 
     res.json({
       success: true,
@@ -494,18 +492,18 @@ app.post("/api/mintAsset", async (req, res) => {
 
     console.log("Minting successful");
 
-    sendTelegramMessage(
-      CHAT_ID,
-      `✅ Tokens Minted!\n` +
-        `📍 Asset ID: ${assetId}\n` +
-        `👤 To: ${to}\n` +
-        `💰 Amount: ${amount}\n` +
-        `👤 By Owner: ${userAddress}\n` +
-        `🔗 Transaction Hash: ${tx.hash}\n` +
-        `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch((error) => {
-      console.error("❌ Failed to send minting notification:", error);
-    });
+    // sendTelegramMessage(
+    //   CHAT_ID,
+    //   `✅ Tokens Minted!\n` +
+    //     `📍 Asset ID: ${assetId}\n` +
+    //     `👤 To: ${to}\n` +
+    //     `💰 Amount: ${amount}\n` +
+    //     `👤 By Owner: ${userAddress}\n` +
+    //     `🔗 Transaction Hash: ${tx.hash}\n` +
+    //     `🕒 Time: ${new Date().toLocaleString()}`
+    // ).catch((error) => {
+    //   console.error("❌ Failed to send minting notification:", error);
+    // });
 
     res.json({
       success: true,
@@ -546,17 +544,17 @@ app.post("/api/freezeAccount", async (req, res) => {
 
     console.log("Account freezing successful");
 
-    sendTelegramMessage(
-      CHAT_ID,
-      `❄️ Account Frozen!\n` +
-        `📍 Asset ID: ${assetId}\n` +
-        `👤 Account: ${account}\n` +
-        `👤 By Owner: ${userAddress}\n` +
-        `🔗 Transaction Hash: ${tx.hash}\n` +
-        `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch((error) => {
-      console.error("❌ Failed to send freeze notification:", error);
-    });
+    // sendTelegramMessage(
+    //   CHAT_ID,
+    //   `❄️ Account Frozen!\n` +
+    //     `📍 Asset ID: ${assetId}\n` +
+    //     `👤 Account: ${account}\n` +
+    //     `👤 By Owner: ${userAddress}\n` +
+    //     `🔗 Transaction Hash: ${tx.hash}\n` +
+    //     `🕒 Time: ${new Date().toLocaleString()}`
+    // ).catch((error) => {
+    //   console.error("❌ Failed to send freeze notification:", error);
+    // });
 
     res.json({
       success: true,
@@ -597,17 +595,17 @@ app.post("/api/unfreezeAccount", async (req, res) => {
 
     console.log("Account unfreezing successful");
 
-    sendTelegramMessage(
-      CHAT_ID,
-      `🔥 Account Unfrozen!\n` +
-        `📍 Asset ID: ${assetId}\n` +
-        `👤 Account: ${account}\n` +
-        `👤 By Owner: ${userAddress}\n` +
-        `🔗 Transaction Hash: ${tx.hash}\n` +
-        `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch((error) => {
-      console.error("❌ Failed to send unfreeze notification:", error);
-    });
+    // sendTelegramMessage(
+    //   CHAT_ID,
+    //   `🔥 Account Unfrozen!\n` +
+    //     `📍 Asset ID: ${assetId}\n` +
+    //     `👤 Account: ${account}\n` +
+    //     `👤 By Owner: ${userAddress}\n` +
+    //     `🔗 Transaction Hash: ${tx.hash}\n` +
+    //     `🕒 Time: ${new Date().toLocaleString()}`
+    // ).catch((error) => {
+    //   console.error("❌ Failed to send unfreeze notification:", error);
+    // });
 
     res.json({
       success: true,

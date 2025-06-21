@@ -145,9 +145,11 @@ async function deployPolkaVM(req, res) {
 async function handleRustCode(req, res) {
   const { code } = req.body;
   console.log("Compiling Rust code...");
+  const body = {"code": "#[ink::contract]\nmod counter_contract {\n    #[ink(storage)]\n    pub struct CounterContract {\n        value: u32,\n    }\n\n    impl CounterContract {\n        #[ink(constructor)]\n        pub fn new(init_value: u32) -> Self {\n            Self { value: init_value }\n        }\n\n        #[ink(message)]\n        pub fn increment_by(&mut self, n: u32) -> u32 {\n            self.value += n;\n\n            // Emit an event for transparency\n            self.env().emit_event(Incremented {\n                by: n,\n                new_value: self.value,\n            });\n\n            self.value\n        }\n    }\n\n    #[ink(event)]\n    pub struct Incremented {\n        #[ink(topic)]\n        by: u32,\n\n        #[ink(topic)]\n        new_value: u32,\n    }\n}"}
+
   try {
     // First compile the Rust code
-    const result = await compileRust(code);
+    const result = await compileRust(body);
 
     if (!result) {
       return res.status(500).json({
@@ -156,9 +158,6 @@ async function handleRustCode(req, res) {
         message: "Please check your code syntax and try again.",
       });
     }
-
-    // Then run make
-    const makeResult = await runMake();
 
     // Finally deploy the contract
     await deployPolkaVM(req, res);

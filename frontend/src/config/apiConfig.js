@@ -3,7 +3,7 @@ export const API_CONFIG = {
   // Gemini AI API
   GEMINI: {
     BASE_URL: 'https://generativelanguage.googleapis.com/v1beta',
-    API_KEY: 'AIzaSyANwL7_uwatlyvU3wDyGcFwoSSkpkdBEhY',
+    API_KEY: '',
     MODEL: 'gemini-1.5-flash'
   },
   
