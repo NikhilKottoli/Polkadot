@@ -5,12 +5,13 @@
 [![Solidity](https://img.shields.io/badge/Solidity-^0.8.25-blue)](https://soliditylang.org)
 [![React](https://img.shields.io/badge/React-18-blue)](https://reactjs.org)
 [![AI Powered](https://img.shields.io/badge/AI-Powered-purple)](https://gemini.com)
+[![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue)](https://t.me)
 
 ![image](https://github.com/user-attachments/assets/915e74ed-969d-4d3c-86fa-c2fe732583d6)
 
 **Polkaflow** is a visual blockchain workflow builder that empowers users to design, generate, and deploy smart contracts for the Polkadot ecosystem with ease. By leveraging PolkaVM, AssetHub, and both AI-driven and manual logic code generation, Polkaflow makes blockchain development accessible for everyone—from no-code users to advanced developers.
 
-## Demo : https://www.youtube.com/watch?v=1wMiRCPWYBE
+## Demo : https://www.youtube.com/watch?v=1wMiRCPWYBE (THis is old video of pahse 1. Many features are added in the hackathon)
 
 ## 🚀 What Does Polkaflow Do?
 
@@ -38,7 +39,21 @@
 
 - **AI-Powered Code Generation**: Let AI produce Solidity code from your workflow or prompt.
 - **Custom Logic Engine**: Use our hand-crafted logic engine to generate contracts from your designed flowchart—giving you more control and transparency.
-- **Gas Estimation**: High complexity functions are highlighted and offered to deploy in Rust.
+- **Gas Estimation**: High complexity functions are highlighted and offered to deploy in Rust
+
+### 🧠 Hybrid Contract Optimization & Telegram Integration
+
+- Polkaflow analyzes generated **Solidity contracts** to detect gas inefficiencies.
+- For gas-heavy functions, the system can **auto-generate an equivalent Rust contract**.
+- The Rust contract is **embedded into the Solidity flow** for optimal execution.
+- A built-in **dual-mode code editor** allows developers to:
+  - View, edit, and compile both **Rust** and **Solidity** contracts in one place.
+- **Telegram API integration** enables:
+  - Adding a **Telegram bot as a node** in the workflow.
+  - Receiving **real-time compile and deploy notifications**, including:
+    - ✅ Contract address  
+    - 🔁 Transaction hash  
+    - ⛽ Gas usage
 
 ### Additional Features:
 
