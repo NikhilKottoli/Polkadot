@@ -1,8 +1,4 @@
 import React, { useState, useEffect } from "react";
-import {
-  solidityCompiler,
-  getCompilerVersions,
-} from "@agnostico/browser-solidity-compiler";
 import SyntaxHighlighter from "react-syntax-highlighter";
 import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import { Button } from "@/components/ui/button";
@@ -49,9 +45,7 @@ import {
 import {
   generateSolidityWithWorkflow,
   estimateContractGasWithRecommendations,
-  RustRecommendationCard,
-  WorkflowStatusCard
-} from "../gasEstimation";
+} from "./gasEstimation.jsx";
 
 import WorkflowManager from "../../../../components/WorkflowManager";
 

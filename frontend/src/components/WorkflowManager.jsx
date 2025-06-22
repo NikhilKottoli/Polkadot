@@ -7,7 +7,7 @@ import {
   getAllWorkflows,
   deleteWorkflow
 } from '../utils/aiService.js';
-import { estimateContractGasWithRecommendations } from '../pages/Playground/components/LayoutComponents/gasEstimation.js';
+import { estimateContractGasWithRecommendations } from '../pages/Playground/components/LayoutComponents/gasEstimation.jsx';
 import { LocalStorageService } from '../services/localStorageService.js';
 
 const WorkflowManager = ({ onWorkflowComplete, initialPrompt = '' }) => {

@@ -424,13 +424,16 @@ app.post('/api/createAsset', async (req, res) => {
       `🕒 Time: ${new Date().toLocaleString()}`
     ).catch((error) => {
       console.error("❌ Failed to send asset creation notification:", error);
-      `📍 Name: ${name}\n` +
-      `🔗 Symbol: ${symbol}\n` +
-      `💰 Transaction Hash: ${tx.hash}\n` +
-      `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch(error => {
+      return sendTelegramMessage(CHAT_ID,
+        `📍 Name: ${name}\n` +
+        `🔗 Symbol: ${symbol}\n` +
+        `💰 Transaction Hash: ${tx.hash}\n` +
+        `🕒 Time: ${new Date().toLocaleString()}`
+      );
+    }).catch(error => {
       console.error('❌ Failed to send asset creation notification:', error);
     });
+
 
     res.json({
       success: true,
@@ -472,7 +475,7 @@ app.post('/api/mintAsset', async (req, res) => {
       `💰 Amount: ${amount}\n` +
       `🔗 Transaction Hash: ${tx.hash}\n` +
       `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch(error => {
+    }).catch(error => {
       console.error('❌ Failed to send minting notification:', error);
     });
 
@@ -514,7 +517,7 @@ app.post('/api/freezeAccount', async (req, res) => {
       `👤 Account: ${account}\n` +
       `🔗 Transaction Hash: ${tx.hash}\n` +
       `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch(error => {
+    }).catch(error => {
       console.error('❌ Failed to send freeze notification:', error);
     });
 
@@ -556,7 +559,7 @@ app.post('/api/unfreezeAccount', async (req, res) => {
       `👤 Account: ${account}\n` +
       `🔗 Transaction Hash: ${tx.hash}\n` +
       `🕒 Time: ${new Date().toLocaleString()}`
-    ).catch(error => {
+    }).catch(error => {
       console.error('❌ Failed to send unfreeze notification:', error);
     });
 

@@ -118,7 +118,6 @@ const FlowBoard = ({ projectId, walletAddress, versionTrigger }) => {
   const fetchVersions = async () => {
     projectId = currentProject?.id || projectId;
     if (!walletAddress || !projectId) {
-      alert("Wallet address and project ID are required");
       return;
     }
 
