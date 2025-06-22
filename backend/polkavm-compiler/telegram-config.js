@@ -23,7 +23,7 @@ const TELEGRAM_CONFIG = {
 // Blockchain Configuration
 const BLOCKCHAIN_CONFIG = {
   RPC_URL: process.env.ETH_RPC_URL || "https://testnet-passet-hub-eth-rpc.polkadot.io",
-  PRIVATE_KEY: process.env.PRIVATE_KEY || "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fcee2811"
+  PRIVATE_KEY: process.env.PRIVATE_KEY || ""
 };
 
 module.exports = {

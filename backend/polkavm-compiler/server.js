@@ -29,7 +29,7 @@ app.use(bodyParser.json());
 connectDB();
 // Configure Polkadot AssetHub connection
 const RPC_URL = "https://testnet-passet-hub-eth-rpc.polkadot.io";
-const PRIVATE_KEY = "fd764dc29df5a5350345a449ba730e9bd17f39012bb0148304081606fcee2811";
+const PRIVATE_KEY = "";
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
 const CHAT_ID = "255522477";
