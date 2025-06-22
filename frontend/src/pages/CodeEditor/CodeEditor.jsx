@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { useEditorStore } from "@/store/editorStore";
 import { compileContract, deployContract } from "../../utils/contractService";
-import { RustCompilationService } from "../../services/rustCompilationService";
 
 export default function CodeEditor() {
   const location = useLocation();
@@ -233,10 +232,7 @@ export default function CodeEditor() {
           [fileId]: result,
         }));
       } else if (file.type === "rust") {
-        const result = await RustCompilationService.compileRustContract(
-          file.content,
-          file.name.replace(".rs", "")
-        );
+        const result = "";
         setCompilationResults((prev) => ({
           ...prev,
           [fileId]: result,
@@ -325,11 +321,7 @@ export default function CodeEditor() {
           );
         }
       } else if (file.type === "rust") {
-        result = await RustCompilationService.deployRustContract(
-          compilation.bytecode,
-          walletAddress,
-          file.name.replace(".rs", "")
-        );
+        result = "";
       }
 
       if (result.success) {
@@ -377,12 +369,7 @@ export default function CodeEditor() {
       });
 
       // Estimate gas for the deployed Rust contract with original gas context
-      const gasResult = await RustCompilationService.estimateRustGas(
-        contractAddress,
-        functionName,
-        [],
-        originalGas
-      );
+      const gasResult = "";
 
       if (gasResult.success) {
         console.log(`✅ Gas calculation completed:`, gasResult);

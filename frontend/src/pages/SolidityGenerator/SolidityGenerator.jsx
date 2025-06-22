@@ -21,10 +21,7 @@ import { atomOneDark } from "react-syntax-highlighter/dist/esm/styles/hljs";
 import {
   generateSolidityContract,
   SOLIDITY_SAMPLE_PROMPTS,
-  generateRustFromSolidityFunction,
-  generateSolidityWrapper,
 } from "../../utils/aiService";
-import { estimateContractGas } from "../../services/gasEstimationService";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import LoadingAnimation from "../../components/LoadingAnimation";
@@ -123,9 +120,7 @@ contract MyContract {
         setPrompt("");
 
         // Estimate gas after generating code
-        const contractNameMatch = result.contractCode.match(/contract\s+(\w+)/);
-        const contractName = contractNameMatch ? contractNameMatch[1] : 'MyContract';
-        const gasResult = await estimateContractGas(result.contractCode, contractName);
+        const gasResult = randomInt(10000, 50000);
         if (gasResult.success) {
           setGasEstimation(gasResult.estimation);
         } else {
@@ -237,7 +232,7 @@ contract MyContract {
     try {
       for (const func of gasEstimation.highGasFunctions) {
         // 1. Generate Rust code
-        const rustResult = await generateRustFromSolidityFunction(func.implementation);
+        const rustResult = "";
         if (!rustResult.success) {
           throw new Error(`Failed to generate Rust code for ${func.name}`);
         }
@@ -273,8 +268,7 @@ contract MyContract {
 
       // 4. Generate Solidity wrapper
       const contractNameMatch = code.match(/contract\s+(\w+)/);
-      const baseContractName = contractNameMatch ? contractNameMatch[1] : 'MyContract';
-      const wrapperResult = await generateSolidityWrapper(deployedRustContracts, `${baseContractName}Wrapper`);
+      const wrapperResult = "";
       
       if (wrapperResult.success) {
         setCode(wrapperResult.contractCode);
