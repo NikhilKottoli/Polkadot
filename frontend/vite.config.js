@@ -18,4 +18,7 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@tanstack/react-query'],
   },
+  build: {
+    outDir: 'dist'
+  }
 });
